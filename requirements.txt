@@ -1,0 +1,6 @@
+streamlit>=1.40
+pandas>=2.0
+numpy>=1.26
+pypdf>=5.0
+scikit-learn>=1.5
+google-genai>=1.0
