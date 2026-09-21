@@ -256,6 +256,114 @@ section[data-testid="stSidebar"] hr {
   }
 }
 
+
+/* ===== V4 MOBILE FIX ===== */
+
+/* Sidebar: force a real drawer width on iPhone/Android */
+@media (max-width: 768px) {
+  section[data-testid="stSidebar"] {
+    width: min(88vw, 360px) !important;
+    min-width: min(88vw, 360px) !important;
+    max-width: min(88vw, 360px) !important;
+    background: #f3f6fa !important;
+    overflow-x: hidden !important;
+  }
+
+  section[data-testid="stSidebar"] > div,
+  section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
+  section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Every control must stay inside the drawer */
+  section[data-testid="stSidebar"] .stSelectbox,
+  section[data-testid="stSidebar"] .stTextInput,
+  section[data-testid="stSidebar"] .stSlider,
+  section[data-testid="stSidebar"] .stToggle,
+  section[data-testid="stSidebar"] .stButton,
+  section[data-testid="stSidebar"] .stDateInput,
+  section[data-testid="stSidebar"] .stExpander,
+  section[data-testid="stSidebar"] [data-baseweb="select"],
+  section[data-testid="stSidebar"] [data-baseweb="input"] {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  section[data-testid="stSidebar"] [data-baseweb="select"] > div,
+  section[data-testid="stSidebar"] input,
+  section[data-testid="stSidebar"] textarea,
+  section[data-testid="stSidebar"] button {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  section[data-testid="stSidebar"] [role="slider"] {
+    width: auto !important;
+  }
+
+  /* Prevent labels/long help text from escaping */
+  section[data-testid="stSidebar"] label,
+  section[data-testid="stSidebar"] p,
+  section[data-testid="stSidebar"] span,
+  section[data-testid="stSidebar"] div {
+    overflow-wrap: anywhere !important;
+  }
+
+  /* Collapse button: keep it compact */
+  section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"],
+  section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+  }
+
+  /* Main content when drawer is open should not create horizontal overflow */
+  html, body, [data-testid="stAppViewContainer"] {
+    overflow-x: hidden !important;
+  }
+
+  .block-container {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  .hero {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* On small screens keep chips from stretching the page */
+  .badge {
+    margin-bottom: 6px !important;
+  }
+}
+
+/* Slightly narrower phone layout */
+@media (max-width: 430px) {
+  section[data-testid="stSidebar"] {
+    width: 86vw !important;
+    min-width: 86vw !important;
+    max-width: 86vw !important;
+  }
+
+  .hero-title {
+    font-size: 25px !important;
+  }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -673,10 +781,10 @@ with st.sidebar:
     else:
         st.markdown("### Consulta")
         st.caption(
-            "Modo simplificado: solo documentos vigentes, evidencia estricta y configuración protegida."
+            "Modo simplificado: configuración protegida y solo documentos vigentes."
         )
-        # Mantener opciones simples y útiles para usuario final
-        area_filter = st.selectbox("Área", areas)
+        # En usuario final dejamos el menú lateral mínimo.
+        area_filter = st.session_state.get("user_area_filter", "Todas")
         provider = "Modo extractivo local"
         active_only = True
         as_of_str = None
@@ -721,6 +829,21 @@ else:
 with tabs[0]:
     st.subheader("Consulta normativa")
     st.caption("La respuesta debe poder ser auditada desde su evidencia documental.")
+
+    if st.session_state.get("user_role") != "Administrador":
+        c_area, c_info = st.columns([1.3, 2.7])
+        with c_area:
+            selected_area = st.selectbox(
+                "Área normativa",
+                areas,
+                index=areas.index(st.session_state.get("user_area_filter", "Todas"))
+                    if st.session_state.get("user_area_filter", "Todas") in areas else 0,
+                key="main_area_selector"
+            )
+            st.session_state["user_area_filter"] = selected_area
+            area_filter = selected_area
+        with c_info:
+            st.info("Consulta solo sobre documentos vigentes. Las fuentes se muestran junto a la respuesta.")
 
     if "chat" not in st.session_state:
         st.session_state["chat"] = []
