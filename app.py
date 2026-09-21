@@ -1,17 +1,14 @@
 
 from __future__ import annotations
 
-import os
-import re
 import io
-import csv
+import re
 import json
-import math
 import sqlite3
 import hashlib
 from pathlib import Path
 from datetime import date, datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -32,342 +29,309 @@ st.set_page_config(
     page_title="Agente Normativo PyC Pro",
     page_icon="⚖️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# -------------------- ESTILO --------------------
+# =========================
+# ESTILO RESPONSIVE
+# =========================
 st.markdown("""
 <style>
 :root{
-  --brand:#ff4b55;
-  --brand2:#b81f2e;
-  --ink:#15213a;
-  --muted:#6f788c;
-  --line:#e3e7ef;
-  --soft:#f7f8fb;
-  --ok:#14804a;
-  --warn:#b76e00;
+  --brand:#ef4856;
+  --brand-dark:#b52835;
+  --ink:#17233d;
+  --text:#28364f;
+  --muted:#6f7a8f;
+  --line:#e6eaf0;
+  --soft:#f7f9fc;
+  --soft2:#eef3f8;
+  --blue:#eaf4ff;
+  --blue-text:#2466a8;
+  --ok:#16804c;
+  --warn:#ad6c00;
+  --danger:#b42318;
+  --shadow:0 10px 28px rgba(22,34,61,.07);
 }
-[data-testid="stAppViewContainer"] { background:#fff; }
-[data-testid="stSidebar"] {
-  background:linear-gradient(180deg,#f6f8fb 0%,#eef2f7 100%);
-  border-right:1px solid #e4e8ef;
+
+/* App */
+html, body, [data-testid="stAppViewContainer"] {
+  background:#ffffff !important;
+  color:var(--text) !important;
+  overflow-x:hidden !important;
 }
 .block-container{
-  max-width:1280px;
-  padding-top:1.55rem;
-  padding-bottom:2rem;
+  max-width:1180px !important;
+  padding-top:1rem !important;
+  padding-bottom:2.5rem !important;
 }
-h1,h2,h3 { color:var(--ink); }
-.hero{
-  border:1px solid #e8ebf2;
-  border-radius:18px;
+
+/* Ocultar chrome de Streamlit */
+#MainMenu{visibility:hidden !important;}
+footer{visibility:hidden !important;}
+header[data-testid="stHeader"]{
+  height:0 !important;
+  background:transparent !important;
+}
+[data-testid="stToolbar"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+[data-testid="stAppDeployButton"]{
+  display:none !important;
+}
+
+/* No usamos sidebar */
+section[data-testid="stSidebar"],
+[data-testid="collapsedControl"]{
+  display:none !important;
+}
+
+/* Tipografía */
+h1,h2,h3,h4{color:var(--ink) !important;}
+p,label,span{font-size:inherit;}
+[data-testid="stMarkdownContainer"] p{color:var(--text);}
+
+/* Header */
+.app-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
   padding:22px 24px;
+  border:1px solid var(--line);
+  border-radius:18px;
   background:
-    radial-gradient(circle at 95% 10%, rgba(255,75,85,.10), transparent 28%),
+    radial-gradient(circle at 92% 10%, rgba(239,72,86,.11), transparent 30%),
     linear-gradient(135deg,#fff,#fbfcff);
-  box-shadow:0 8px 30px rgba(16,24,40,.05);
+  box-shadow:var(--shadow);
   margin-bottom:14px;
 }
-.hero-title{
-  font-weight:850;
-  font-size:36px;
-  color:var(--ink);
-  letter-spacing:-.6px;
+.app-brand{
+  min-width:0;
 }
-.hero-sub{ color:var(--muted); margin-top:4px; font-size:15px; }
-.badge{
-  display:inline-block;
+.app-kicker{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+  margin-bottom:10px;
+}
+.chip{
+  display:inline-flex;
+  align-items:center;
   padding:5px 10px;
+  border:1px solid #f5c6cb;
   border-radius:999px;
-  font-size:12px;
+  background:#fff6f7;
+  color:#a62634;
   font-weight:700;
-  background:#fff0f1;
-  color:#a92431;
-  border:1px solid #ffd2d7;
-  margin-right:6px;
+  font-size:12px;
+  line-height:1;
 }
-.kpi{
-  border:1px solid #e6eaf0;
-  background:#fff;
-  padding:15px 16px;
+.app-title{
+  margin:0;
+  color:var(--ink);
+  font-size:38px;
+  line-height:1.08;
+  font-weight:850;
+  letter-spacing:-.7px;
+}
+.app-subtitle{
+  margin-top:7px;
+  color:var(--muted);
+  font-size:15px;
+  line-height:1.5;
+  max-width:760px;
+}
+.logo-box{
+  flex:0 0 auto;
+  min-width:78px;
+  height:54px;
   border-radius:14px;
-  box-shadow:0 4px 16px rgba(16,24,40,.035);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:850;
+  font-size:22px;
+  color:#294a88;
+  border:1px solid #e3e8f0;
+  background:#fff;
 }
-.ev{
+
+/* Top control panel */
+.topbar{
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--soft);
+  padding:12px 14px;
+  margin-bottom:14px;
+}
+
+/* Cards */
+.card{
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:#fff;
+  padding:16px;
+  box-shadow:0 4px 18px rgba(22,34,61,.035);
+}
+.info-card{
+  border:1px solid #cfe4f8;
+  border-radius:12px;
+  background:var(--blue);
+  padding:12px 14px;
+  color:var(--blue-text);
+}
+.evidence-card{
   border:1px solid #eceff4;
   border-left:4px solid var(--brand);
-  border-radius:10px;
-  padding:12px 14px;
-  background:#fffafb;
-  margin:8px 0;
+  border-radius:11px;
+  background:#fffafa;
+  padding:13px 14px;
+  margin:9px 0;
 }
-.ev strong{ color:var(--ink); }
-.muted{ color:var(--muted); font-size:13px; }
-.score-high{ color:#14804a; font-weight:700; }
-.score-mid{ color:#b76e00; font-weight:700; }
-.score-low{ color:#b42318; font-weight:700; }
-.answer-box{
-  border:1px solid #e5e9f0;
-  background:#fcfdff;
-  padding:16px 18px;
-  border-radius:12px;
-}
-.source-chip{
-  display:inline-block;
-  border:1px solid #e0e5ec;
-  background:#fff;
+.source-pill{
+  display:inline-flex;
+  align-items:center;
   padding:4px 8px;
   border-radius:999px;
-  margin:2px 4px 2px 0;
+  background:#f2f5f9;
+  border:1px solid #e1e6ed;
+  color:#4d5a70;
   font-size:12px;
+  margin:2px 4px 2px 0;
 }
-div.stButton > button { border-radius:9px; }
+.score-high{color:var(--ok);font-weight:750;}
+.score-mid{color:var(--warn);font-weight:750;}
+.score-low{color:var(--danger);font-weight:750;}
 
-/* ===== PyC hardening visual / mobile ===== */
-
-/* Oculta controles de Streamlit Community Cloud */
-#MainMenu { visibility: hidden !important; }
-footer { visibility: hidden !important; }
-[data-testid="stToolbar"] { display: none !important; }
-[data-testid="stDecoration"] { display: none !important; }
-[data-testid="stStatusWidget"] { visibility: hidden !important; }
-[data-testid="stAppDeployButton"] { display: none !important; }
-button[title="View app source"] { display: none !important; }
-a[href*="github.com"] { display: none !important; }
-
-/* Mantiene el header técnico invisible pero conserva el espacio necesario */
-header[data-testid="stHeader"] {
-  background: transparent !important;
-  height: 0 !important;
+/* Inputs */
+[data-baseweb="select"] > div,
+[data-baseweb="input"] > div,
+.stTextInput input,
+.stTextArea textarea{
+  background:#fff !important;
+  color:var(--ink) !important;
+  border-color:#dfe5ed !important;
 }
-
-/* Sidebar: fondo opaco y texto legible, independiente del modo del teléfono */
-section[data-testid="stSidebar"] {
-  background: #f3f6fa !important;
-  border-right: 1px solid #e1e6ee !important;
+.stButton > button{
+  border-radius:9px !important;
 }
-section[data-testid="stSidebar"] * {
-  color: #17233d !important;
-}
-section[data-testid="stSidebar"] input,
-section[data-testid="stSidebar"] textarea,
-section[data-testid="stSidebar"] [data-baseweb="select"] > div {
-  background: #ffffff !important;
-  color: #17233d !important;
-}
-section[data-testid="stSidebar"] [data-baseweb="select"] * {
-  color: #17233d !important;
-}
-section[data-testid="stSidebar"] hr {
-  border-color: #d9dee8 !important;
+.stButton > button[kind="primary"]{
+  background:var(--brand) !important;
+  border-color:var(--brand) !important;
 }
 
-/* Botón de cierre / apertura del sidebar */
-[data-testid="stSidebarCollapseButton"] button,
-[data-testid="collapsedControl"] button {
-  background: #ffffff !important;
-  border: 1px solid #dfe4ec !important;
-  color: #17233d !important;
-  border-radius: 9px !important;
+/* Tabs */
+[data-baseweb="tab-list"]{
+  gap:8px !important;
+  overflow-x:auto !important;
+  scrollbar-width:none !important;
+}
+[data-baseweb="tab-list"]::-webkit-scrollbar{display:none !important;}
+[data-baseweb="tab"]{
+  flex:0 0 auto !important;
+  white-space:nowrap !important;
 }
 
-/* Inputs principales siempre claros */
-[data-testid="stAppViewContainer"] input,
-[data-testid="stAppViewContainer"] textarea,
-[data-testid="stAppViewContainer"] [data-baseweb="select"] > div {
-  background-color: #ffffff !important;
-  color: #17233d !important;
+/* Chat input */
+[data-testid="stChatInput"]{
+  background:#fff !important;
+}
+
+/* Metric grid via HTML */
+.metric-grid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:10px;
+  margin:8px 0 18px 0;
+}
+.metric-box{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:13px;
+  padding:14px;
+}
+.metric-label{
+  color:var(--muted);
+  font-size:12px;
+  margin-bottom:4px;
+}
+.metric-value{
+  color:var(--ink);
+  font-size:24px;
+  font-weight:800;
 }
 
 /* Mobile */
-@media (max-width: 768px) {
-  .block-container {
-    padding-left: 0.85rem !important;
-    padding-right: 0.85rem !important;
-    padding-top: 0.8rem !important;
+@media (max-width: 760px){
+  .block-container{
+    padding:0.65rem 0.75rem 2rem 0.75rem !important;
+    max-width:100% !important;
   }
 
-  .hero {
-    padding: 16px 16px !important;
-    border-radius: 14px !important;
+  .app-header{
+    padding:16px 15px;
+    border-radius:14px;
+    gap:10px;
+  }
+  .logo-box{display:none;}
+  .app-title{
+    font-size:27px;
+    line-height:1.12;
+  }
+  .app-subtitle{
+    font-size:13px;
+    line-height:1.45;
+  }
+  .chip{
+    font-size:11px;
+    padding:5px 8px;
   }
 
-  .hero-title {
-    font-size: 27px !important;
-    line-height: 1.08 !important;
+  .topbar{
+    padding:10px;
+    border-radius:12px;
   }
 
-  .hero-sub {
-    font-size: 13px !important;
+  /* Evita columnas apretadas en móvil */
+  [data-testid="stHorizontalBlock"]{
+    flex-wrap:wrap !important;
+    gap:.55rem !important;
+  }
+  [data-testid="column"]{
+    min-width:100% !important;
+    width:100% !important;
+    flex:1 1 100% !important;
   }
 
-  section[data-testid="stSidebar"] {
-    width: 86vw !important;
-    min-width: 86vw !important;
-    max-width: 360px !important;
-    box-shadow: 8px 0 28px rgba(15, 23, 42, .14) !important;
+  .metric-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .metric-value{font-size:21px;}
+
+  .card{padding:13px;}
+  .info-card{padding:11px 12px;}
+
+  [data-baseweb="tab"]{
+    font-size:14px !important;
   }
 
-  /* evita la sensación de contenido "lavado" bajo el drawer */
-  [data-testid="stSidebar"][aria-expanded="true"] {
-    opacity: 1 !important;
-  }
-
-  /* Tabs desplazables y sin apretar contenido */
-  [data-baseweb="tab-list"] {
-    gap: 8px !important;
-    overflow-x: auto !important;
-    scrollbar-width: none !important;
-  }
-  [data-baseweb="tab-list"]::-webkit-scrollbar {
-    display: none !important;
-  }
-  [data-baseweb="tab"] {
-    flex: 0 0 auto !important;
-    white-space: nowrap !important;
-  }
-
-  /* Chat e inputs cómodos en iPhone */
-  [data-testid="stChatInput"] {
-    padding-bottom: calc(env(safe-area-inset-bottom) + 8px) !important;
-  }
-
-  /* Métricas una debajo de otra cuando no caben */
-  [data-testid="stMetric"] {
-    min-width: 0 !important;
-  }
-}
-
-
-/* V3: experiencia simplificada por perfil */
-@media (max-width: 768px) {
-  section[data-testid="stSidebar"] .stSelectbox,
-  section[data-testid="stSidebar"] .stToggle,
-  section[data-testid="stSidebar"] .stSlider,
-  section[data-testid="stSidebar"] .stTextInput {
-    margin-bottom: .35rem !important;
-  }
-  section[data-testid="stSidebar"] details {
-    background: #ffffff !important;
-    border: 1px solid #e4e8ef !important;
-    border-radius: 10px !important;
-    padding: 2px 8px !important;
+  /* chat input con safe area iPhone */
+  [data-testid="stChatInput"]{
+    padding-bottom:calc(env(safe-area-inset-bottom) + 4px) !important;
   }
 }
 
-
-/* ===== V4 MOBILE FIX ===== */
-
-/* Sidebar: force a real drawer width on iPhone/Android */
-@media (max-width: 768px) {
-  section[data-testid="stSidebar"] {
-    width: min(88vw, 360px) !important;
-    min-width: min(88vw, 360px) !important;
-    max-width: min(88vw, 360px) !important;
-    background: #f3f6fa !important;
-    overflow-x: hidden !important;
-  }
-
-  section[data-testid="stSidebar"] > div,
-  section[data-testid="stSidebar"] [data-testid="stSidebarContent"],
-  section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    overflow-x: hidden !important;
-  }
-
-  section[data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-  }
-
-  /* Every control must stay inside the drawer */
-  section[data-testid="stSidebar"] .stSelectbox,
-  section[data-testid="stSidebar"] .stTextInput,
-  section[data-testid="stSidebar"] .stSlider,
-  section[data-testid="stSidebar"] .stToggle,
-  section[data-testid="stSidebar"] .stButton,
-  section[data-testid="stSidebar"] .stDateInput,
-  section[data-testid="stSidebar"] .stExpander,
-  section[data-testid="stSidebar"] [data-baseweb="select"],
-  section[data-testid="stSidebar"] [data-baseweb="input"] {
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  section[data-testid="stSidebar"] [data-baseweb="select"] > div,
-  section[data-testid="stSidebar"] input,
-  section[data-testid="stSidebar"] textarea,
-  section[data-testid="stSidebar"] button {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  section[data-testid="stSidebar"] [role="slider"] {
-    width: auto !important;
-  }
-
-  /* Prevent labels/long help text from escaping */
-  section[data-testid="stSidebar"] label,
-  section[data-testid="stSidebar"] p,
-  section[data-testid="stSidebar"] span,
-  section[data-testid="stSidebar"] div {
-    overflow-wrap: anywhere !important;
-  }
-
-  /* Collapse button: keep it compact */
-  section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"],
-  section[data-testid="stSidebar"] [data-testid="stSidebarCollapseButton"] button {
-    width: 44px !important;
-    min-width: 44px !important;
-    max-width: 44px !important;
-  }
-
-  /* Main content when drawer is open should not create horizontal overflow */
-  html, body, [data-testid="stAppViewContainer"] {
-    overflow-x: hidden !important;
-  }
-
-  .block-container {
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-  }
-
-  .hero {
-    width: 100% !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  /* On small screens keep chips from stretching the page */
-  .badge {
-    margin-bottom: 6px !important;
-  }
+@media (max-width: 390px){
+  .app-title{font-size:24px;}
+  .metric-grid{grid-template-columns:1fr;}
 }
-
-/* Slightly narrower phone layout */
-@media (max-width: 430px) {
-  section[data-testid="stSidebar"] {
-    width: 86vw !important;
-    min-width: 86vw !important;
-    max-width: 86vw !important;
-  }
-
-  .hero-title {
-    font-size: 25px !important;
-  }
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-# -------------------- DB --------------------
+# =========================
+# DB
+# =========================
 def db():
     return sqlite3.connect(DB_PATH)
 
@@ -427,8 +391,7 @@ def init_db():
         created_at TEXT NOT NULL,
         found_expected_doc INTEGER,
         top_score REAL,
-        evidence_count INTEGER,
-        FOREIGN KEY(qa_case_id) REFERENCES qa_cases(id)
+        evidence_count INTEGER
     );
     """)
     con.commit()
@@ -436,39 +399,32 @@ def init_db():
 
 init_db()
 
-# -------------------- PERFIL / EXPERIENCIA --------------------
-if "user_role" not in st.session_state:
-    st.session_state["user_role"] = "Usuario"
-if "show_advanced" not in st.session_state:
-    st.session_state["show_advanced"] = False
-
-# -------------------- HELPERS --------------------
+# =========================
+# HELPERS
+# =========================
 def clean_text(s: str) -> str:
     s = (s or "").replace("\x00"," ")
-    s = re.sub(r"[ \t]+", " ", s)
-    s = re.sub(r"\n{3,}", "\n\n", s)
+    s = re.sub(r"[ \t]+"," ",s)
+    s = re.sub(r"\n{3,}","\n\n",s)
     return s.strip()
-
-def sha256_bytes(b: bytes) -> str:
-    return hashlib.sha256(b).hexdigest()
 
 def chunk_page(text: str, max_chars=1300, overlap=180):
     text = clean_text(text)
     if not text:
         return []
-    paras = re.split(r"\n\s*\n|(?<=[\.\:\;])\s+(?=[A-ZÁÉÍÓÚÑ0-9])", text)
+    parts = re.split(r"\n\s*\n|(?<=[\.\:\;])\s+(?=[A-ZÁÉÍÓÚÑ0-9])", text)
     out, buf = [], ""
-    for p in paras:
+    for p in parts:
         p = clean_text(p)
         if not p:
             continue
-        if len(buf) + len(p) + 1 <= max_chars:
-            buf = (buf + " " + p).strip()
+        if len(buf)+len(p)+1 <= max_chars:
+            buf = (buf+" "+p).strip()
         else:
             if buf:
                 out.append(buf)
             tail = buf[-overlap:] if buf else ""
-            buf = (tail + " " + p).strip()
+            buf = (tail+" "+p).strip()
     if buf:
         out.append(buf)
     return out
@@ -476,711 +432,518 @@ def chunk_page(text: str, max_chars=1300, overlap=180):
 def parse_pdf(data: bytes):
     reader = PdfReader(io.BytesIO(data))
     pages = []
-    for i, page in enumerate(reader.pages, start=1):
+    for i, page in enumerate(reader.pages,1):
         try:
             txt = clean_text(page.extract_text() or "")
         except Exception:
             txt = ""
-        pages.append((i, txt))
+        pages.append((i,txt))
     return pages
 
 def add_document(file, meta):
     raw = file.getvalue()
-    digest = sha256_bytes(raw)
+    digest = hashlib.sha256(raw).hexdigest()
     con = db()
     cur = con.cursor()
-    existing = cur.execute("SELECT id, filename FROM documents WHERE sha256=?", (digest,)).fetchone()
-    if existing:
+    old = cur.execute("SELECT id,filename FROM documents WHERE sha256=?",(digest,)).fetchone()
+    if old:
         con.close()
-        return False, f"Documento duplicado: ya existe como {existing[1]}."
+        return False, f"Ya existe como {old[1]}."
 
     pages = parse_pdf(raw)
-    char_count = sum(len(t) for _, t in pages)
-    saved = UPLOAD_DIR / file.name
-    saved.write_bytes(raw)
+    chars = sum(len(t) for _,t in pages)
+    (UPLOAD_DIR/file.name).write_bytes(raw)
 
     cur.execute("""
-        INSERT INTO documents(
-            filename, sha256, area, tipo, version, fecha_publicacion,
-            vigencia_desde, vigencia_hasta, estado, fuente_url, etiquetas,
-            reemplaza_a, pages, chars, created_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    """, (
-        file.name, digest, meta["area"], meta["tipo"], meta["version"],
-        meta["fecha_publicacion"], meta["vigencia_desde"], meta["vigencia_hasta"],
-        meta["estado"], meta["fuente_url"], meta["etiquetas"], meta["reemplaza_a"],
-        len(pages), char_count, datetime.now().isoformat(timespec="seconds")
+      INSERT INTO documents(filename,sha256,area,tipo,version,fecha_publicacion,
+      vigencia_desde,vigencia_hasta,estado,fuente_url,etiquetas,reemplaza_a,pages,chars,created_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """,(
+        file.name,digest,meta["area"],meta["tipo"],meta["version"],meta["fecha_publicacion"],
+        meta["vigencia_desde"],meta["vigencia_hasta"],meta["estado"],meta["fuente_url"],
+        meta["etiquetas"],meta["reemplaza_a"],len(pages),chars,
+        datetime.now().isoformat(timespec="seconds")
     ))
     doc_id = cur.lastrowid
-
-    for page_no, txt in pages:
-        for n, ch in enumerate(chunk_page(txt)):
+    for pno, txt in pages:
+        for n,ch in enumerate(chunk_page(txt)):
             cur.execute(
-                "INSERT INTO chunks(document_id,page,chunk_no,text) VALUES (?,?,?,?)",
-                (doc_id, page_no, n, ch)
+                "INSERT INTO chunks(document_id,page,chunk_no,text) VALUES(?,?,?,?)",
+                (doc_id,pno,n,ch)
             )
     con.commit()
     con.close()
-    return True, f"{file.name}: {len(pages)} páginas y {char_count:,} caracteres indexados."
+    return True, f"{file.name}: {len(pages)} páginas indexadas."
 
-def get_documents(active_only=False, area=None, as_of=None):
+def get_documents():
     con = db()
-    q = "SELECT * FROM documents WHERE 1=1"
-    params = []
-    if active_only:
-        q += " AND estado='Vigente'"
-    if area and area != "Todas":
-        q += " AND area=?"
-        params.append(area)
-    if as_of:
-        q += " AND (vigencia_desde IS NULL OR vigencia_desde='' OR vigencia_desde<=?)"
-        q += " AND (vigencia_hasta IS NULL OR vigencia_hasta='' OR vigencia_hasta>=?)"
-        params.extend([as_of, as_of])
-    rows = pd.read_sql_query(q + " ORDER BY created_at DESC", con, params=params)
+    df = pd.read_sql_query("SELECT * FROM documents ORDER BY created_at DESC",con)
     con.close()
-    return rows
+    return df
 
-def get_search_corpus(active_only=True, area=None, as_of=None):
+def get_corpus(active_only=True, area="Todas", as_of=None):
     con = db()
     q = """
-    SELECT c.id chunk_id, c.page, c.chunk_no, c.text,
-           d.id document_id, d.filename, d.area, d.tipo, d.version,
-           d.vigencia_desde, d.vigencia_hasta, d.estado
-    FROM chunks c
-    JOIN documents d ON d.id=c.document_id
+    SELECT c.id chunk_id,c.page,c.chunk_no,c.text,
+           d.id document_id,d.filename,d.area,d.tipo,d.version,
+           d.vigencia_desde,d.vigencia_hasta,d.estado
+    FROM chunks c JOIN documents d ON d.id=c.document_id
     WHERE 1=1
     """
-    params = []
+    p=[]
     if active_only:
         q += " AND d.estado='Vigente'"
-    if area and area != "Todas":
+    if area and area!="Todas":
         q += " AND d.area=?"
-        params.append(area)
+        p.append(area)
     if as_of:
-        q += " AND (d.vigencia_desde IS NULL OR d.vigencia_desde='' OR d.vigencia_desde<=?)"
-        q += " AND (d.vigencia_hasta IS NULL OR d.vigencia_hasta='' OR d.vigencia_hasta>=?)"
-        params.extend([as_of, as_of])
-    rows = pd.read_sql_query(q, con, params=params)
+        q += " AND (d.vigencia_desde='' OR d.vigencia_desde IS NULL OR d.vigencia_desde<=?)"
+        q += " AND (d.vigencia_hasta='' OR d.vigencia_hasta IS NULL OR d.vigencia_hasta>=?)"
+        p += [as_of,as_of]
+    df = pd.read_sql_query(q,con,params=p)
     con.close()
-    return rows
+    return df
 
-STOP = set("""
-de la el los las un una unos unas y o u en por para con sin sobre entre desde hasta que qué
-como cómo cual cuál cuales cuáles es son fue eran será se su sus al del lo más menos muy
-""".split())
+STOP=set("""de la el los las un una unos unas y o u en por para con sin sobre entre desde hasta
+que qué como cómo cual cuál cuales cuáles es son fue eran será se su sus al del lo más menos muy""".split())
 
-def tokenize(s):
-    return [x for x in re.findall(r"[a-záéíóúñ0-9]{2,}", (s or "").lower()) if x not in STOP]
+def tokens(s):
+    return [x for x in re.findall(r"[a-záéíóúñ0-9]{2,}",(s or "").lower()) if x not in STOP]
 
-def keyword_score(question, text):
-    q = set(tokenize(question))
-    t = set(tokenize(text))
-    if not q:
-        return 0.0
-    return len(q & t) / max(1, len(q))
+def literal_score(q,t):
+    q=set(tokens(q)); t=set(tokens(t))
+    if not q: return 0.0
+    return len(q&t)/max(1,len(q))
 
-def retrieve(question, final_k, candidates, threshold, lexical_weight, area, as_of, active_only=True):
-    corpus = get_search_corpus(active_only=active_only, area=area, as_of=as_of)
+def retrieve(question, final_k=6, candidates=25, threshold=.10, lexical_weight=.30,
+             area="Todas", as_of=None, active_only=True):
+    corpus=get_corpus(active_only,area,as_of)
     if corpus.empty:
         return []
-
-    texts = corpus["text"].fillna("").tolist()
+    texts=corpus["text"].fillna("").tolist()
     try:
-        vect = TfidfVectorizer(
-            lowercase=True,
-            strip_accents="unicode",
-            ngram_range=(1,2),
-            min_df=1,
-            sublinear_tf=True,
-            max_features=50000
-        )
-        m = vect.fit_transform(texts + [question])
-        semantic = cosine_similarity(m[-1], m[:-1]).flatten()
+        v=TfidfVectorizer(lowercase=True,strip_accents="unicode",ngram_range=(1,2),sublinear_tf=True,max_features=50000)
+        m=v.fit_transform(texts+[question])
+        sem=cosine_similarity(m[-1],m[:-1]).flatten()
     except Exception:
-        semantic = np.zeros(len(texts))
-
-    lexical = np.array([keyword_score(question, t) for t in texts])
-    hybrid = (1 - lexical_weight) * semantic + lexical_weight * lexical
-
-    idx = np.argsort(hybrid)[::-1][:max(candidates, final_k)]
-    out = []
-    seen = set()
-    for i in idx:
-        score = float(hybrid[i])
-        if score < threshold:
-            continue
-        row = corpus.iloc[int(i)].to_dict()
-        key = (row["document_id"], row["page"], row["chunk_no"])
-        if key in seen:
-            continue
-        seen.add(key)
-        row["semantic_score"] = float(semantic[i])
-        row["lexical_score"] = float(lexical[i])
-        row["score"] = score
-        out.append(row)
-        if len(out) >= final_k:
-            break
+        sem=np.zeros(len(texts))
+    lit=np.array([literal_score(question,t) for t in texts])
+    score=(1-lexical_weight)*sem+lexical_weight*lit
+    order=np.argsort(score)[::-1][:max(candidates,final_k)]
+    out=[]
+    for i in order:
+        if float(score[i])<threshold: continue
+        r=corpus.iloc[int(i)].to_dict()
+        r["semantic_score"]=float(sem[i]); r["lexical_score"]=float(lit[i]); r["score"]=float(score[i])
+        out.append(r)
+        if len(out)>=final_k: break
     return out
 
 def source_label(e):
     return f"{e['filename']} · pág. {int(e['page'])}"
 
-def local_answer(question, evidence):
+def local_answer(evidence):
     if not evidence:
         return "No encontré evidencia suficiente en la base documental cargada."
-    lines = [
-        "Encontré evidencia relevante en la base documental. "
-        "Como el modo generativo no está activo, presento una respuesta extractiva y las fuentes asociadas.",
-        ""
-    ]
-    for i, e in enumerate(evidence[:3], 1):
-        snippet = clean_text(e["text"])
-        if len(snippet) > 520:
-            snippet = snippet[:520].rstrip() + "…"
-        lines.append(f"**{i}. {source_label(e)}**")
-        lines.append(snippet)
-        lines.append("")
+    lines=["Encontré evidencia relevante en la base documental:"]
+    for i,e in enumerate(evidence[:3],1):
+        sn=clean_text(e["text"])
+        if len(sn)>520: sn=sn[:520].rstrip()+"…"
+        lines += [f"\n**{i}. {source_label(e)}**",sn]
     return "\n".join(lines)
 
-def gemini_answer(question, evidence, api_key):
-    context = "\n\n".join(
+def gemini_answer(question,evidence,api_key):
+    ctx="\n\n".join(
         f"[FUENTE {i}: {source_label(e)} | score={e['score']:.3f}]\n{e['text']}"
-        for i, e in enumerate(evidence, 1)
+        for i,e in enumerate(evidence,1)
     )
-    prompt = f"""
-Actúa como asistente normativo bancario con política de evidencia estricta.
-
-REGLAS:
-1. Responde exclusivamente con la evidencia entregada.
-2. Si falta evidencia suficiente, responde exactamente:
-   "No encontré evidencia suficiente en la base documental cargada."
-3. No inventes artículos, obligaciones, fechas, límites ni referencias.
-4. Cuando afirmes algo relevante, agrega la cita entre paréntesis usando este formato:
-   (Documento.pdf, pág. X)
-5. Si las fuentes se contradicen, indícalo explícitamente y no resuelvas la contradicción por tu cuenta.
-6. Distingue claramente entre una obligación normativa y una explicación contextual.
-7. Sé conciso pero preciso.
+    prompt=f"""
+Eres un asistente normativo bancario. Responde solo con la evidencia entregada.
+Si no es suficiente, responde: "No encontré evidencia suficiente en la base documental cargada."
+Cita cada afirmación relevante con (Documento.pdf, pág. X).
+Si hay contradicciones, indícalas y no las resuelvas por tu cuenta.
+No inventes artículos, fechas, obligaciones ni referencias.
 
 PREGUNTA:
 {question}
 
 EVIDENCIA:
-{context}
+{ctx}
 """
     try:
         from google import genai
-        client = genai.Client(api_key=api_key)
-        resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-        return resp.text
+        client=genai.Client(api_key=api_key)
+        r=client.models.generate_content(model="gemini-2.0-flash",contents=prompt)
+        return r.text
     except Exception as e:
-        return f"No fue posible consultar Gemini. Detalle técnico: {e}"
+        return f"No fue posible consultar Gemini: {e}"
 
-def log_query(question, provider, evidence, latency_ms, filters):
-    con = db()
-    cur = con.cursor()
-    top = max([e["score"] for e in evidence], default=0)
-    avg = (sum(e["score"] for e in evidence)/len(evidence)) if evidence else 0
-    cur.execute("""
-    INSERT INTO queries(created_at,question,provider,evidence_count,top_score,avg_score,no_evidence,latency_ms,filters_json)
-    VALUES(?,?,?,?,?,?,?,?,?)
-    """, (
-        datetime.now().isoformat(timespec="seconds"), question, provider, len(evidence),
-        top, avg, 0 if evidence else 1, latency_ms, json.dumps(filters, ensure_ascii=False)
+def log_query(question,provider,evidence,latency_ms,filters):
+    con=db()
+    top=max([e["score"] for e in evidence],default=0)
+    avg=sum([e["score"] for e in evidence])/len(evidence) if evidence else 0
+    con.execute("""
+      INSERT INTO queries(created_at,question,provider,evidence_count,top_score,avg_score,no_evidence,latency_ms,filters_json)
+      VALUES(?,?,?,?,?,?,?,?,?)
+    """,(
+        datetime.now().isoformat(timespec="seconds"),question,provider,len(evidence),
+        top,avg,0 if evidence else 1,latency_ms,json.dumps(filters,ensure_ascii=False)
     ))
-    con.commit()
-    con.close()
+    con.commit(); con.close()
 
 def delete_doc(doc_id):
-    con = db()
-    cur = con.cursor()
-    cur.execute("DELETE FROM chunks WHERE document_id=?", (doc_id,))
-    cur.execute("DELETE FROM documents WHERE id=?", (doc_id,))
-    con.commit()
-    con.close()
+    con=db()
+    con.execute("DELETE FROM chunks WHERE document_id=?",(doc_id,))
+    con.execute("DELETE FROM documents WHERE id=?",(doc_id,))
+    con.commit(); con.close()
 
 def score_class(s):
-    if s >= .55: return "score-high"
-    if s >= .25: return "score-mid"
-    return "score-low"
+    return "score-high" if s>=.55 else ("score-mid" if s>=.25 else "score-low")
 
-# -------------------- SIDEBAR --------------------
-with st.sidebar:
-    st.markdown("## ⚖️ Agente Normativo")
-    st.caption("PyC · Edición Pro")
-    st.divider()
+# =========================
+# ESTADO
+# =========================
+if "role" not in st.session_state:
+    st.session_state["role"]="Usuario"
+if "chat" not in st.session_state:
+    st.session_state["chat"]=[]
 
-    st.markdown("### Perfil")
-    role = st.selectbox(
-        "Modo de uso",
-        ["Usuario", "Administrador"],
-        index=0 if st.session_state.get("user_role","Usuario") == "Usuario" else 1,
-        help="En esta demo el selector simula el perfil. En producción se reemplaza por login/SSO."
-    )
-    st.session_state["user_role"] = role
-
-    # Valores por defecto seguros para usuarios normales
-    final_k = 6
-    candidates = 25
-    threshold = 0.10
-    lexical_weight = 0.30
-    area_filter = "Todas"
-    active_only = True
-    use_asof = False
-    as_of = date.today()
-    as_of_str = None
-    provider = "Modo extractivo local"
-    api_key = ""
-    strict_mode = True
-
-    docs_df = get_documents()
-    areas = ["Todas"] + sorted([x for x in docs_df["area"].dropna().unique().tolist() if x]) if not docs_df.empty else ["Todas"]
-
-    if role == "Administrador":
-        st.markdown("### Configuración avanzada")
-        show_advanced = st.toggle(
-            "Mostrar parámetros",
-            value=st.session_state.get("show_advanced", False),
-            help="Oculta los parámetros cuando no los necesitas."
-        )
-        st.session_state["show_advanced"] = show_advanced
-
-        if show_advanced:
-            with st.expander("🔎 Recuperación", expanded=True):
-                final_k = st.slider("Fragmentos finales", 3, 12, 6)
-                candidates = st.slider("Candidatos iniciales", 5, 60, 25)
-                threshold = st.slider("Umbral mínimo", 0.00, 1.00, 0.10, 0.01)
-                lexical_weight = st.slider(
-                    "Peso búsqueda literal",
-                    0.0, 1.0, 0.30, 0.05,
-                    help="0 = solo similitud TF-IDF; 1 = solo coincidencia de términos."
-                )
-
-            with st.expander("📚 Filtros documentales", expanded=False):
-                area_filter = st.selectbox("Área", areas)
-                active_only = st.toggle("Solo documentos vigentes", value=True)
-                use_asof = st.toggle("Consultar vigencia a una fecha", value=False)
-                as_of = st.date_input("Fecha de consulta", value=date.today(), disabled=not use_asof)
-                as_of_str = str(as_of) if use_asof else None
-
-            with st.expander("🤖 Generación", expanded=False):
-                provider = st.selectbox("Proveedor", ["Gemini", "Modo extractivo local"])
-                api_key = st.text_input("API key Gemini", type="password", help="No se persiste en disco.")
-                strict_mode = st.toggle(
-                    "Modo evidencia estricta",
-                    value=True,
-                    help="Si no hay evidencia sobre el umbral, no intenta responder."
-                )
-        else:
-            st.caption("Parámetros avanzados ocultos. Se usan valores seguros por defecto.")
-            area_filter = "Todas"
-            active_only = True
-            as_of_str = None
-            provider = "Modo extractivo local"
-            api_key = ""
-            strict_mode = True
-    else:
-        st.markdown("### Consulta")
-        st.caption(
-            "Modo simplificado: configuración protegida y solo documentos vigentes."
-        )
-        # En usuario final dejamos el menú lateral mínimo.
-        area_filter = st.session_state.get("user_area_filter", "Todas")
-        provider = "Modo extractivo local"
-        active_only = True
-        as_of_str = None
-        strict_mode = True
-
-    st.divider()
-    if st.button("Limpiar conversación", use_container_width=True):
-        st.session_state["chat"] = []
-        st.rerun()
-
-# -------------------- HERO --------------------
+# =========================
+# HEADER
+# =========================
 st.markdown("""
-<div class="hero">
-  <div>
-    <span class="badge">RAG auditable</span>
-    <span class="badge">Control de vigencia</span>
-    <span class="badge">QA incorporado</span>
+<div class="app-header">
+  <div class="app-brand">
+    <div class="app-kicker">
+      <span class="chip">RAG auditable</span>
+      <span class="chip">Control de vigencia</span>
+      <span class="chip">QA incorporado</span>
+    </div>
+    <div class="app-title">Agente Normativo PyC Pro</div>
+    <div class="app-subtitle">
+      Consulta normativa con trazabilidad por documento y página, control de versiones,
+      recuperación híbrida y monitoreo de calidad.
+    </div>
   </div>
-  <div class="hero-title">Agente Normativo PyC Pro</div>
-  <div class="hero-sub">
-    Consulta normativa con trazabilidad por documento y página, control de versiones,
-    recuperación híbrida y monitoreo de calidad.
-  </div>
+  <div class="logo-box">PyC</div>
 </div>
-""", unsafe_allow_html=True)
+""",unsafe_allow_html=True)
 
-if st.session_state.get("user_role") == "Administrador":
-    tabs = st.tabs([
-        "💬 Consulta",
-        "📚 Base documental",
-        "⬆️ Ingesta",
-        "🧪 Evaluación QA",
-        "📊 Monitoreo",
-    ])
+# =========================
+# BARRA SUPERIOR
+# =========================
+st.markdown('<div class="topbar">',unsafe_allow_html=True)
+c1,c2 = st.columns([1,2.4])
+with c1:
+    role = st.selectbox(
+        "Perfil de prueba",
+        ["Usuario","Administrador"],
+        index=0 if st.session_state["role"]=="Usuario" else 1,
+        help="Demo. En producción debe reemplazarse por autenticación real."
+    )
+    st.session_state["role"]=role
+with c2:
+    if role=="Usuario":
+        st.markdown(
+            '<div class="info-card">Modo usuario: consulta simplificada, solo documentos vigentes y evidencia estricta.</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            '<div class="info-card">Modo administrador: acceso a configuración, ingesta, QA y monitoreo.</div>',
+            unsafe_allow_html=True
+        )
+st.markdown('</div>',unsafe_allow_html=True)
+
+docs_df=get_documents()
+areas=["Todas"]+sorted([x for x in docs_df["area"].dropna().unique().tolist() if x]) if not docs_df.empty else ["Todas"]
+
+# Defaults
+final_k=6; candidates=25; threshold=.10; lexical_weight=.30
+active_only=True; area_filter="Todas"; as_of_str=None
+provider="Modo extractivo local"; api_key=""; strict_mode=True
+
+# Admin settings are in the page, never in a drawer/sidebar
+if role=="Administrador":
+    with st.expander("⚙️ Configuración avanzada", expanded=False):
+        s1,s2 = st.columns(2)
+        with s1:
+            st.markdown("#### Recuperación")
+            final_k=st.slider("Fragmentos finales",3,12,6)
+            candidates=st.slider("Candidatos iniciales",5,60,25)
+            threshold=st.slider("Umbral mínimo",0.00,1.00,.10,.01)
+            lexical_weight=st.slider("Peso búsqueda literal",0.0,1.0,.30,.05)
+        with s2:
+            st.markdown("#### Alcance")
+            area_filter=st.selectbox("Área",areas,key="admin_area")
+            active_only=st.toggle("Solo documentos vigentes",True)
+            use_asof=st.toggle("Consultar vigencia a una fecha",False)
+            asof=st.date_input("Fecha de consulta",date.today(),disabled=not use_asof)
+            as_of_str=str(asof) if use_asof else None
+
+        g1,g2 = st.columns(2)
+        with g1:
+            provider=st.selectbox("Proveedor",["Modo extractivo local","Gemini"])
+        with g2:
+            api_key=st.text_input("API key Gemini",type="password",disabled=provider!="Gemini")
+        strict_mode=st.toggle("Modo evidencia estricta",True)
+
+# =========================
+# NAVEGACIÓN
+# =========================
+if role=="Administrador":
+    nav = st.tabs(["💬 Consulta","📚 Base documental","⬆️ Ingesta","🧪 QA","📊 Monitoreo"])
 else:
-    tabs = st.tabs([
-        "💬 Consulta",
-        "📚 Fuentes",
-    ])
+    nav = st.tabs(["💬 Consulta","📚 Fuentes"])
 
-# -------------------- CONSULTA --------------------
-with tabs[0]:
+# =========================
+# CONSULTA
+# =========================
+with nav[0]:
     st.subheader("Consulta normativa")
-    st.caption("La respuesta debe poder ser auditada desde su evidencia documental.")
+    st.caption("Cada respuesta debe poder revisarse desde su evidencia documental.")
 
-    if st.session_state.get("user_role") != "Administrador":
-        c_area, c_info = st.columns([1.3, 2.7])
-        with c_area:
-            selected_area = st.selectbox(
-                "Área normativa",
-                areas,
-                index=areas.index(st.session_state.get("user_area_filter", "Todas"))
-                    if st.session_state.get("user_area_filter", "Todas") in areas else 0,
-                key="main_area_selector"
+    if role=="Usuario":
+        a1,a2 = st.columns([1.1,2.4])
+        with a1:
+            area_filter=st.selectbox("Área normativa",areas,key="user_area")
+        with a2:
+            st.markdown(
+                '<div class="info-card">Consulta solo documentos vigentes. Las fuentes y páginas aparecen junto a la respuesta.</div>',
+                unsafe_allow_html=True
             )
-            st.session_state["user_area_filter"] = selected_area
-            area_filter = selected_area
-        with c_info:
-            st.info("Consulta solo sobre documentos vigentes. Las fuentes se muestran junto a la respuesta.")
 
-    if "chat" not in st.session_state:
-        st.session_state["chat"] = []
-
-    for m in st.session_state["chat"]:
-        with st.chat_message(m["role"]):
-            st.markdown(m["content"])
-            if m.get("evidence"):
-                with st.expander("🔎 Evidencia utilizada", expanded=False):
-                    for e in m["evidence"]:
-                        cls = score_class(e["score"])
+    for msg in st.session_state["chat"]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if msg.get("evidence"):
+                with st.expander("Ver evidencia utilizada"):
+                    for e in msg["evidence"]:
+                        cls=score_class(e["score"])
                         st.markdown(
-                            f"""<div class="ev">
+                            f"""<div class="evidence-card">
                             <strong>{source_label(e)}</strong><br>
                             <span class="{cls}">Score {e['score']:.3f}</span>
-                            <span class="muted"> · semántico {e['semantic_score']:.3f}
-                            · literal {e['lexical_score']:.3f}</span><br><br>
+                            <span style="color:#7b8496;font-size:12px">
+                            · semántico {e['semantic_score']:.3f} · literal {e['lexical_score']:.3f}
+                            </span><br><br>
                             {e['text'][:1500]}
                             </div>""",
                             unsafe_allow_html=True
                         )
 
-    q = st.chat_input("Ej.: ¿Cuál es la exigencia aplicable al archivo D10?")
+    q=st.chat_input("Escribe una consulta normativa…")
     if q:
         import time
-        t0 = time.perf_counter()
-
-        filters = {
-            "area": area_filter,
-            "as_of": as_of_str,
-            "active_only": active_only,
-            "threshold": threshold,
-            "lexical_weight": lexical_weight
-        }
-        evidence = retrieve(
-            q, final_k, candidates, threshold, lexical_weight,
-            area_filter, as_of_str, active_only
-        )
-
-        if strict_mode and not evidence:
-            answer = "No encontré evidencia suficiente en la base documental cargada."
-        elif provider == "Gemini" and api_key and evidence:
-            answer = gemini_answer(q, evidence, api_key)
+        t0=time.perf_counter()
+        ev=retrieve(q,final_k,candidates,threshold,lexical_weight,area_filter,as_of_str,active_only)
+        if strict_mode and not ev:
+            ans="No encontré evidencia suficiente en la base documental cargada."
+        elif provider=="Gemini" and api_key and ev:
+            ans=gemini_answer(q,ev,api_key)
         else:
-            answer = local_answer(q, evidence)
-
-        latency = int((time.perf_counter() - t0) * 1000)
-        log_query(q, provider, evidence, latency, filters)
-
-        st.session_state["chat"].append({"role":"user","content":q})
-        st.session_state["chat"].append({
-            "role":"assistant",
-            "content":answer,
-            "evidence":evidence
+            ans=local_answer(ev)
+        latency=int((time.perf_counter()-t0)*1000)
+        log_query(q,provider,ev,latency,{
+            "area":area_filter,"as_of":as_of_str,"active_only":active_only,
+            "threshold":threshold,"lexical_weight":lexical_weight
         })
+        st.session_state["chat"].append({"role":"user","content":q})
+        st.session_state["chat"].append({"role":"assistant","content":ans,"evidence":ev})
         st.rerun()
 
-# -------------------- BASE DOCUMENTAL --------------------
-with tabs[1]:
-    if st.session_state.get("user_role") == "Administrador":
+    if st.button("Limpiar conversación"):
+        st.session_state["chat"]=[]
+        st.rerun()
+
+# =========================
+# BASE / FUENTES
+# =========================
+with nav[1]:
+    if role=="Usuario":
+        st.subheader("Fuentes disponibles")
+        st.caption("Documentos actualmente incorporados a la base normativa.")
+    else:
         st.subheader("Base documental")
         st.caption("Inventario, vigencia, versión y estado de los documentos indexados.")
-    else:
-        st.subheader("Fuentes disponibles")
-        st.caption("Documentos normativos disponibles para tus consultas.")
 
-    ddf = get_documents()
+    ddf=get_documents()
     if ddf.empty:
         st.info("Aún no hay documentos cargados.")
     else:
-        show = ddf.rename(columns={
-            "filename":"Documento",
-            "area":"Área",
-            "tipo":"Tipo",
-            "version":"Versión",
-            "fecha_publicacion":"Publicación",
-            "vigencia_desde":"Vigente desde",
-            "vigencia_hasta":"Vigente hasta",
-            "estado":"Estado",
-            "pages":"Páginas",
-            "chars":"Caracteres",
-            "reemplaza_a":"Reemplaza a",
-        })[[
-            "Documento","Área","Tipo","Versión","Publicación","Vigente desde",
-            "Vigente hasta","Estado","Páginas","Caracteres","Reemplaza a"
-        ]]
-        st.dataframe(show, use_container_width=True, hide_index=True)
+        if role=="Usuario":
+            show=ddf[["filename","area","version","vigencia_desde","estado","pages"]].rename(columns={
+                "filename":"Documento","area":"Área","version":"Versión",
+                "vigencia_desde":"Vigente desde","estado":"Estado","pages":"Páginas"
+            })
+        else:
+            show=ddf[[
+                "filename","area","tipo","version","fecha_publicacion","vigencia_desde",
+                "vigencia_hasta","estado","pages","chars","reemplaza_a"
+            ]].rename(columns={
+                "filename":"Documento","area":"Área","tipo":"Tipo","version":"Versión",
+                "fecha_publicacion":"Publicación","vigencia_desde":"Vigente desde",
+                "vigencia_hasta":"Vigente hasta","estado":"Estado","pages":"Páginas",
+                "chars":"Caracteres","reemplaza_a":"Reemplaza a"
+            })
+        st.dataframe(show,use_container_width=True,hide_index=True)
 
-        if st.session_state.get("user_role") == "Administrador":
+        if role=="Administrador":
             st.markdown("### Explorador de recuperación")
-            test_q = st.text_input("Pregunta de prueba", value="¿Qué contiene el archivo D10?", key="base_test")
-            if st.button("Probar recuperación", type="primary"):
-                ev = retrieve(
-                    test_q, final_k, candidates, threshold, lexical_weight,
-                    area_filter, as_of_str, active_only
-                )
+            testq=st.text_input("Pregunta de prueba",value="¿Qué contiene el archivo D10?",key="testq")
+            if st.button("Probar recuperación",type="primary"):
+                ev=retrieve(testq,final_k,candidates,threshold,lexical_weight,area_filter,as_of_str,active_only)
                 if not ev:
-                    st.warning("No se encontraron fragmentos sobre el umbral configurado.")
+                    st.warning("No se encontraron fragmentos por sobre el umbral.")
                 else:
-                    for i, e in enumerate(ev, 1):
+                    for i,e in enumerate(ev,1):
                         st.markdown(
-                            f"""<div class="ev">
+                            f"""<div class="evidence-card">
                             <strong>{i}. {source_label(e)}</strong><br>
-                            Área: {e['area']} · Versión: {e['version']} ·
-                            Score: {e['score']:.3f}<br><br>
+                            Área: {e['area']} · Versión: {e['version']} · Score {e['score']:.3f}<br><br>
                             {e['text'][:1600]}
                             </div>""",
                             unsafe_allow_html=True
                         )
 
             st.markdown("### Gestión")
-            ids = ddf["id"].tolist()
-            opts = {f"{r['filename']} · {r['version']} · ID {r['id']}": int(r["id"]) for _, r in ddf.iterrows()}
-            selected = st.selectbox("Documento", list(opts.keys()))
+            opts={f"{r['filename']} · {r['version']} · ID {r['id']}":int(r["id"]) for _,r in ddf.iterrows()}
+            selected=st.selectbox("Documento",list(opts.keys()))
             if st.button("Eliminar documento seleccionado"):
                 delete_doc(opts[selected])
-                st.success("Documento eliminado de la base y del índice.")
+                st.success("Documento eliminado.")
                 st.rerun()
 
-if st.session_state.get("user_role") == "Administrador":
-    # -------------------- INGESTA --------------------
-    with tabs[2]:
+# =========================
+# ADMIN TABS
+# =========================
+if role=="Administrador":
+
+    with nav[2]:
         st.subheader("Ingesta controlada")
-        st.caption("La metadata permite distinguir versiones, vigencia y reemplazos.")
+        st.caption("Carga PDF con metadata de versión, vigencia, fuente y reemplazo.")
 
-        files = st.file_uploader(
-            "Selecciona uno o más PDF",
-            type=["pdf"],
-            accept_multiple_files=True
-        )
+        files=st.file_uploader("Selecciona uno o más PDF",type=["pdf"],accept_multiple_files=True)
 
-        c1, c2, c3 = st.columns(3)
+        c1,c2 = st.columns(2)
         with c1:
-            area = st.text_input("Área", placeholder="Ej.: Contables")
-            tipo = st.selectbox("Tipo documental", [
-                "Norma", "Circular", "Capítulo", "Manual", "Anexo", "Otro"
-            ])
-            version = st.text_input("Versión", value=str(date.today()))
+            area=st.text_input("Área",placeholder="Ej.: Contables")
+            tipo=st.selectbox("Tipo documental",["Norma","Circular","Capítulo","Manual","Anexo","Otro"])
+            version=st.text_input("Versión",value=str(date.today()))
+            fuente_url=st.text_input("URL oficial / fuente")
         with c2:
-            pub = st.date_input("Fecha de publicación", value=date.today())
-            vig_desde = st.date_input("Vigencia desde", value=date.today())
-            has_end = st.checkbox("Tiene fin de vigencia", value=False)
-            vig_hasta = st.date_input("Vigencia hasta", value=date.today(), disabled=not has_end)
-        with c3:
-            estado = st.selectbox("Estado", ["Vigente", "Borrador", "No vigente"])
-            fuente_url = st.text_input("URL oficial / fuente")
-            etiquetas = st.text_input("Etiquetas", placeholder="RCD, deuda, CMF")
-            reemplaza_a = st.text_input("Reemplaza a", placeholder="Nombre o versión anterior")
+            pub=st.date_input("Fecha de publicación",date.today())
+            vig_desde=st.date_input("Vigencia desde",date.today())
+            has_end=st.checkbox("Tiene fin de vigencia",False)
+            vig_hasta=st.date_input("Vigencia hasta",date.today(),disabled=not has_end)
+            estado=st.selectbox("Estado",["Vigente","Borrador","No vigente"])
 
-        if st.button("Incorporar a la base", type="primary", disabled=not files):
-            messages = []
+        etiquetas=st.text_input("Etiquetas",placeholder="RCD, deuda, CMF")
+        reemplaza_a=st.text_input("Reemplaza a",placeholder="Nombre o versión anterior")
+
+        if st.button("Incorporar a la base",type="primary",disabled=not files):
             for f in files or []:
-                ok, msg = add_document(f, {
-                    "area": area or "Sin clasificar",
-                    "tipo": tipo,
-                    "version": version,
-                    "fecha_publicacion": str(pub),
-                    "vigencia_desde": str(vig_desde),
-                    "vigencia_hasta": str(vig_hasta) if has_end else "",
-                    "estado": estado,
-                    "fuente_url": fuente_url,
-                    "etiquetas": etiquetas,
-                    "reemplaza_a": reemplaza_a,
+                ok,msg=add_document(f,{
+                    "area":area or "Sin clasificar","tipo":tipo,"version":version,
+                    "fecha_publicacion":str(pub),"vigencia_desde":str(vig_desde),
+                    "vigencia_hasta":str(vig_hasta) if has_end else "",
+                    "estado":estado,"fuente_url":fuente_url,"etiquetas":etiquetas,
+                    "reemplaza_a":reemplaza_a
                 })
-                messages.append((ok, msg))
-            for ok, msg in messages:
                 st.success(msg) if ok else st.warning(msg)
-            if any(ok for ok, _ in messages):
-                st.rerun()
+            st.rerun()
 
-        st.divider()
-        st.markdown("#### Controles de ingesta incorporados")
-        st.markdown("""
-    - Hash SHA-256 para evitar duplicados.
-    - Extracción por página para conservar trazabilidad.
-    - Fragmentación con solapamiento.
-    - Metadata de publicación y vigencia.
-    - Estado documental y relación de reemplazo.
-    - Fuente oficial y etiquetas.
-    """)
-
-    # -------------------- QA --------------------
-    with tabs[3]:
+    with nav[3]:
         st.subheader("Evaluación QA")
-        st.caption("Convierte preguntas conocidas en una batería repetible de pruebas.")
+        st.caption("Batería repetible de preguntas conocidas para medir recuperación documental.")
 
-        qa_sub = st.tabs(["Casos de prueba", "Carga masiva", "Ejecutar evaluación"])
-
-        with qa_sub[0]:
-            with st.form("qa_add"):
-                qq = st.text_area("Pregunta")
-                ed = st.text_input("Documento esperado", placeholder="Ej.: Deudores.pdf")
-                et = st.text_input("Texto esperado (opcional)", placeholder="Palabra o frase que debería aparecer")
-                nt = st.text_area("Observaciones")
-                save = st.form_submit_button("Guardar caso")
+        qa1,qa2 = st.tabs(["Casos","Ejecutar"])
+        with qa1:
+            with st.form("qaform"):
+                qq=st.text_area("Pregunta")
+                ed=st.text_input("Documento esperado")
+                et=st.text_input("Texto esperado (opcional)")
+                nt=st.text_area("Observaciones")
+                save=st.form_submit_button("Guardar caso")
             if save and qq.strip():
-                con = db()
+                con=db()
                 con.execute("""
-                    INSERT INTO qa_cases(question,expected_document,expected_text,notes,created_at)
-                    VALUES(?,?,?,?,?)
-                """, (qq.strip(), ed.strip(), et.strip(), nt.strip(), datetime.now().isoformat(timespec="seconds")))
-                con.commit()
-                con.close()
-                st.success("Caso QA agregado.")
-                st.rerun()
+                INSERT INTO qa_cases(question,expected_document,expected_text,notes,created_at)
+                VALUES(?,?,?,?,?)
+                """,(qq.strip(),ed.strip(),et.strip(),nt.strip(),datetime.now().isoformat(timespec="seconds")))
+                con.commit(); con.close(); st.rerun()
 
-            con = db()
-            qdf = pd.read_sql_query("SELECT * FROM qa_cases ORDER BY id DESC", con)
+            con=db()
+            qdf=pd.read_sql_query("SELECT * FROM qa_cases ORDER BY id DESC",con)
             con.close()
             if not qdf.empty:
-                st.dataframe(qdf[["id","question","expected_document","expected_text","notes"]], use_container_width=True, hide_index=True)
+                st.dataframe(qdf[["id","question","expected_document","expected_text","notes"]],
+                             use_container_width=True,hide_index=True)
 
-        with qa_sub[1]:
-            template = pd.DataFrame([
-                {
-                    "question":"¿Qué contiene el archivo D10?",
-                    "expected_document":"Deudores.pdf",
-                    "expected_text":"D10",
-                    "notes":"Caso de ejemplo"
-                }
-            ])
-            st.download_button(
-                "Descargar plantilla CSV",
-                data=template.to_csv(index=False).encode("utf-8-sig"),
-                file_name="plantilla_qa.csv",
-                mime="text/csv"
-            )
-            qa_file = st.file_uploader("Cargar CSV QA", type=["csv"], key="qa_csv")
-            if qa_file and st.button("Importar casos QA"):
-                df = pd.read_csv(qa_file)
-                required = {"question","expected_document","expected_text","notes"}
-                if not required.issubset(df.columns):
-                    st.error("El CSV debe incluir: question, expected_document, expected_text, notes")
-                else:
-                    con = db()
-                    for _, r in df.iterrows():
-                        con.execute("""
-                            INSERT INTO qa_cases(question,expected_document,expected_text,notes,created_at)
-                            VALUES(?,?,?,?,?)
-                        """, (
-                            str(r.get("question","")).strip(),
-                            str(r.get("expected_document","")).strip(),
-                            str(r.get("expected_text","")).strip(),
-                            str(r.get("notes","")).strip(),
-                            datetime.now().isoformat(timespec="seconds")
-                        ))
-                    con.commit()
-                    con.close()
-                    st.success(f"Se importaron {len(df)} casos.")
-                    st.rerun()
-
-        with qa_sub[2]:
-            con = db()
-            qdf = pd.read_sql_query("SELECT * FROM qa_cases ORDER BY id", con)
+        with qa2:
+            con=db()
+            qdf=pd.read_sql_query("SELECT * FROM qa_cases ORDER BY id",con)
             con.close()
             if qdf.empty:
                 st.info("Primero agrega casos QA.")
-            elif st.button("Ejecutar batería completa", type="primary"):
-                results = []
-                con = db()
-                for _, r in qdf.iterrows():
-                    ev = retrieve(
-                        r["question"], final_k, candidates, threshold, lexical_weight,
-                        area_filter, as_of_str, active_only
-                    )
-                    expected = (r["expected_document"] or "").strip().lower()
-                    found = any((e["filename"] or "").lower() == expected for e in ev) if expected else None
-                    top = max([e["score"] for e in ev], default=0)
+            elif st.button("Ejecutar batería completa",type="primary"):
+                rows=[]
+                con=db()
+                for _,r in qdf.iterrows():
+                    ev=retrieve(r["question"],final_k,candidates,threshold,lexical_weight,area_filter,as_of_str,active_only)
+                    expected=(r["expected_document"] or "").strip().lower()
+                    found=any((e["filename"] or "").lower()==expected for e in ev) if expected else None
+                    top=max([e["score"] for e in ev],default=0)
                     con.execute("""
-                        INSERT INTO qa_runs(qa_case_id,created_at,found_expected_doc,top_score,evidence_count)
-                        VALUES(?,?,?,?,?)
-                    """, (
-                        int(r["id"]), datetime.now().isoformat(timespec="seconds"),
-                        None if found is None else int(found), top, len(ev)
-                    ))
-                    results.append({
-                        "ID": r["id"],
-                        "Pregunta": r["question"],
-                        "Documento esperado": r["expected_document"],
-                        "Encontrado": "Sí" if found else ("N/A" if found is None else "No"),
-                        "Top score": round(top,3),
-                        "Evidencias": len(ev)
+                    INSERT INTO qa_runs(qa_case_id,created_at,found_expected_doc,top_score,evidence_count)
+                    VALUES(?,?,?,?,?)
+                    """,(int(r["id"]),datetime.now().isoformat(timespec="seconds"),
+                         None if found is None else int(found),top,len(ev)))
+                    rows.append({
+                        "ID":r["id"],"Pregunta":r["question"],"Documento esperado":r["expected_document"],
+                        "Encontrado":"Sí" if found else ("N/A" if found is None else "No"),
+                        "Top score":round(top,3),"Evidencias":len(ev)
                     })
-                con.commit()
-                con.close()
-                rdf = pd.DataFrame(results)
-                st.dataframe(rdf, use_container_width=True, hide_index=True)
-                valid = rdf[rdf["Encontrado"].isin(["Sí","No"])]
+                con.commit(); con.close()
+                rdf=pd.DataFrame(rows)
+                st.dataframe(rdf,use_container_width=True,hide_index=True)
+                valid=rdf[rdf["Encontrado"].isin(["Sí","No"])]
                 if len(valid):
-                    acc = (valid["Encontrado"]=="Sí").mean()*100
-                    st.metric("Recall documental QA", f"{acc:.1f}%")
+                    st.metric("Recall documental QA",f"{(valid['Encontrado']=='Sí').mean()*100:.1f}%")
 
-    # -------------------- MONITOREO --------------------
-    with tabs[4]:
+    with nav[4]:
         st.subheader("Monitoreo")
-        con = db()
-        dcount = pd.read_sql_query("SELECT COUNT(*) n FROM documents", con).iloc[0]["n"]
-        ccount = pd.read_sql_query("SELECT COUNT(*) n FROM chunks", con).iloc[0]["n"]
-        qlog = pd.read_sql_query("SELECT * FROM queries ORDER BY id DESC", con)
-        qac = pd.read_sql_query("SELECT COUNT(*) n FROM qa_cases", con).iloc[0]["n"]
+        con=db()
+        dcount=pd.read_sql_query("SELECT COUNT(*) n FROM documents",con).iloc[0]["n"]
+        ccount=pd.read_sql_query("SELECT COUNT(*) n FROM chunks",con).iloc[0]["n"]
+        qlog=pd.read_sql_query("SELECT * FROM queries ORDER BY id DESC",con)
+        qac=pd.read_sql_query("SELECT COUNT(*) n FROM qa_cases",con).iloc[0]["n"]
         con.close()
 
-        total_q = len(qlog)
-        no_ev = int(qlog["no_evidence"].sum()) if total_q else 0
-        avg_lat = int(qlog["latency_ms"].mean()) if total_q else 0
-        avg_top = float(qlog["top_score"].mean()) if total_q else 0
+        total_q=len(qlog)
+        no_ev=int(qlog["no_evidence"].sum()) if total_q else 0
+        avg_lat=int(qlog["latency_ms"].mean()) if total_q else 0
+        avg_top=float(qlog["top_score"].mean()) if total_q else 0
 
-        c1,c2,c3,c4,c5 = st.columns(5)
-        c1.metric("Documentos", int(dcount))
-        c2.metric("Fragmentos", int(ccount))
-        c3.metric("Consultas", total_q)
-        c4.metric("Sin evidencia", no_ev)
-        c5.metric("Latencia media", f"{avg_lat} ms")
+        st.markdown(f"""
+        <div class="metric-grid">
+          <div class="metric-box"><div class="metric-label">Documentos</div><div class="metric-value">{int(dcount)}</div></div>
+          <div class="metric-box"><div class="metric-label">Fragmentos</div><div class="metric-value">{int(ccount)}</div></div>
+          <div class="metric-box"><div class="metric-label">Consultas</div><div class="metric-value">{total_q}</div></div>
+          <div class="metric-box"><div class="metric-label">Sin evidencia</div><div class="metric-value">{no_ev}</div></div>
+          <div class="metric-box"><div class="metric-label">Latencia media</div><div class="metric-value">{avg_lat} ms</div></div>
+        </div>
+        """,unsafe_allow_html=True)
 
         st.caption(f"Score superior medio: {avg_top:.3f} · Casos QA: {int(qac)}")
-
         if total_q:
-            st.markdown("### Últimas consultas")
-            show = qlog[[
+            st.dataframe(qlog[[
                 "created_at","question","provider","evidence_count","top_score",
                 "avg_score","no_evidence","latency_ms"
-            ]].head(100)
-            st.dataframe(show, use_container_width=True, hide_index=True)
+            ]].head(100),use_container_width=True,hide_index=True)
 
-            st.markdown("### Indicadores de calidad")
-            no_ev_rate = (no_ev / total_q) * 100 if total_q else 0
-            st.progress(min(no_ev_rate/100, 1.0), text=f"Consultas sin evidencia: {no_ev_rate:.1f}%")
-
-    st.divider()
-    st.caption(
-        "Prototipo PyC Pro. Las respuestas deben validarse contra la normativa oficial vigente. "
-        "El diseño prioriza evidencia, vigencia, trazabilidad y pruebas repetibles."
-    )
-
-if st.session_state.get("user_role") != "Administrador":
-    st.divider()
-    st.caption(
-        "Las respuestas deben validarse contra la normativa oficial vigente. "
-        "El agente prioriza evidencia documental y trazabilidad."
-    )
+st.divider()
+st.caption(
+    "Las respuestas deben validarse contra la normativa oficial vigente. "
+    "El sistema prioriza evidencia, trazabilidad y control de vigencia."
+)
