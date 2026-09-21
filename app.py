@@ -123,6 +123,139 @@ h1,h2,h3 { color:var(--ink); }
   font-size:12px;
 }
 div.stButton > button { border-radius:9px; }
+
+/* ===== PyC hardening visual / mobile ===== */
+
+/* Oculta controles de Streamlit Community Cloud */
+#MainMenu { visibility: hidden !important; }
+footer { visibility: hidden !important; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
+[data-testid="stStatusWidget"] { visibility: hidden !important; }
+[data-testid="stAppDeployButton"] { display: none !important; }
+button[title="View app source"] { display: none !important; }
+a[href*="github.com"] { display: none !important; }
+
+/* Mantiene el header técnico invisible pero conserva el espacio necesario */
+header[data-testid="stHeader"] {
+  background: transparent !important;
+  height: 0 !important;
+}
+
+/* Sidebar: fondo opaco y texto legible, independiente del modo del teléfono */
+section[data-testid="stSidebar"] {
+  background: #f3f6fa !important;
+  border-right: 1px solid #e1e6ee !important;
+}
+section[data-testid="stSidebar"] * {
+  color: #17233d !important;
+}
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] textarea,
+section[data-testid="stSidebar"] [data-baseweb="select"] > div {
+  background: #ffffff !important;
+  color: #17233d !important;
+}
+section[data-testid="stSidebar"] [data-baseweb="select"] * {
+  color: #17233d !important;
+}
+section[data-testid="stSidebar"] hr {
+  border-color: #d9dee8 !important;
+}
+
+/* Botón de cierre / apertura del sidebar */
+[data-testid="stSidebarCollapseButton"] button,
+[data-testid="collapsedControl"] button {
+  background: #ffffff !important;
+  border: 1px solid #dfe4ec !important;
+  color: #17233d !important;
+  border-radius: 9px !important;
+}
+
+/* Inputs principales siempre claros */
+[data-testid="stAppViewContainer"] input,
+[data-testid="stAppViewContainer"] textarea,
+[data-testid="stAppViewContainer"] [data-baseweb="select"] > div {
+  background-color: #ffffff !important;
+  color: #17233d !important;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .block-container {
+    padding-left: 0.85rem !important;
+    padding-right: 0.85rem !important;
+    padding-top: 0.8rem !important;
+  }
+
+  .hero {
+    padding: 16px 16px !important;
+    border-radius: 14px !important;
+  }
+
+  .hero-title {
+    font-size: 27px !important;
+    line-height: 1.08 !important;
+  }
+
+  .hero-sub {
+    font-size: 13px !important;
+  }
+
+  section[data-testid="stSidebar"] {
+    width: 86vw !important;
+    min-width: 86vw !important;
+    max-width: 360px !important;
+    box-shadow: 8px 0 28px rgba(15, 23, 42, .14) !important;
+  }
+
+  /* evita la sensación de contenido "lavado" bajo el drawer */
+  [data-testid="stSidebar"][aria-expanded="true"] {
+    opacity: 1 !important;
+  }
+
+  /* Tabs desplazables y sin apretar contenido */
+  [data-baseweb="tab-list"] {
+    gap: 8px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+  }
+  [data-baseweb="tab-list"]::-webkit-scrollbar {
+    display: none !important;
+  }
+  [data-baseweb="tab"] {
+    flex: 0 0 auto !important;
+    white-space: nowrap !important;
+  }
+
+  /* Chat e inputs cómodos en iPhone */
+  [data-testid="stChatInput"] {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 8px) !important;
+  }
+
+  /* Métricas una debajo de otra cuando no caben */
+  [data-testid="stMetric"] {
+    min-width: 0 !important;
+  }
+}
+
+
+/* V3: experiencia simplificada por perfil */
+@media (max-width: 768px) {
+  section[data-testid="stSidebar"] .stSelectbox,
+  section[data-testid="stSidebar"] .stToggle,
+  section[data-testid="stSidebar"] .stSlider,
+  section[data-testid="stSidebar"] .stTextInput {
+    margin-bottom: .35rem !important;
+  }
+  section[data-testid="stSidebar"] details {
+    background: #ffffff !important;
+    border: 1px solid #e4e8ef !important;
+    border-radius: 10px !important;
+    padding: 2px 8px !important;
+  }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -194,6 +327,12 @@ def init_db():
     con.close()
 
 init_db()
+
+# -------------------- PERFIL / EXPERIENCIA --------------------
+if "user_role" not in st.session_state:
+    st.session_state["user_role"] = "Usuario"
+if "show_advanced" not in st.session_state:
+    st.session_state["show_advanced"] = False
 
 # -------------------- HELPERS --------------------
 def clean_text(s: str) -> str:
@@ -462,36 +601,88 @@ with st.sidebar:
     st.caption("PyC · Edición Pro")
     st.divider()
 
-    st.markdown("### Recuperación")
-    final_k = st.slider("Fragmentos finales", 3, 12, 6)
-    candidates = st.slider("Candidatos iniciales", 5, 60, 25)
-    threshold = st.slider("Umbral mínimo", 0.00, 1.00, 0.10, 0.01)
-    lexical_weight = st.slider(
-        "Peso búsqueda literal",
-        0.0, 1.0, 0.30, 0.05,
-        help="0 = solo similitud TF-IDF; 1 = solo coincidencia de términos."
+    st.markdown("### Perfil")
+    role = st.selectbox(
+        "Modo de uso",
+        ["Usuario", "Administrador"],
+        index=0 if st.session_state.get("user_role","Usuario") == "Usuario" else 1,
+        help="En esta demo el selector simula el perfil. En producción se reemplaza por login/SSO."
     )
+    st.session_state["user_role"] = role
+
+    # Valores por defecto seguros para usuarios normales
+    final_k = 6
+    candidates = 25
+    threshold = 0.10
+    lexical_weight = 0.30
+    area_filter = "Todas"
+    active_only = True
+    use_asof = False
+    as_of = date.today()
+    as_of_str = None
+    provider = "Modo extractivo local"
+    api_key = ""
+    strict_mode = True
 
     docs_df = get_documents()
     areas = ["Todas"] + sorted([x for x in docs_df["area"].dropna().unique().tolist() if x]) if not docs_df.empty else ["Todas"]
-    area_filter = st.selectbox("Área", areas)
 
-    st.markdown("### Vigencia")
-    active_only = st.toggle("Solo documentos vigentes", value=True)
-    use_asof = st.toggle("Consultar vigencia a una fecha", value=False)
-    as_of = st.date_input("Fecha de consulta", value=date.today(), disabled=not use_asof)
-    as_of_str = str(as_of) if use_asof else None
+    if role == "Administrador":
+        st.markdown("### Configuración avanzada")
+        show_advanced = st.toggle(
+            "Mostrar parámetros",
+            value=st.session_state.get("show_advanced", False),
+            help="Oculta los parámetros cuando no los necesitas."
+        )
+        st.session_state["show_advanced"] = show_advanced
 
-    st.markdown("### Generación")
-    provider = st.selectbox("Proveedor", ["Gemini", "Modo extractivo local"])
-    api_key = st.text_input("API key Gemini", type="password", help="No se persiste en disco.")
+        if show_advanced:
+            with st.expander("🔎 Recuperación", expanded=True):
+                final_k = st.slider("Fragmentos finales", 3, 12, 6)
+                candidates = st.slider("Candidatos iniciales", 5, 60, 25)
+                threshold = st.slider("Umbral mínimo", 0.00, 1.00, 0.10, 0.01)
+                lexical_weight = st.slider(
+                    "Peso búsqueda literal",
+                    0.0, 1.0, 0.30, 0.05,
+                    help="0 = solo similitud TF-IDF; 1 = solo coincidencia de términos."
+                )
+
+            with st.expander("📚 Filtros documentales", expanded=False):
+                area_filter = st.selectbox("Área", areas)
+                active_only = st.toggle("Solo documentos vigentes", value=True)
+                use_asof = st.toggle("Consultar vigencia a una fecha", value=False)
+                as_of = st.date_input("Fecha de consulta", value=date.today(), disabled=not use_asof)
+                as_of_str = str(as_of) if use_asof else None
+
+            with st.expander("🤖 Generación", expanded=False):
+                provider = st.selectbox("Proveedor", ["Gemini", "Modo extractivo local"])
+                api_key = st.text_input("API key Gemini", type="password", help="No se persiste en disco.")
+                strict_mode = st.toggle(
+                    "Modo evidencia estricta",
+                    value=True,
+                    help="Si no hay evidencia sobre el umbral, no intenta responder."
+                )
+        else:
+            st.caption("Parámetros avanzados ocultos. Se usan valores seguros por defecto.")
+            area_filter = "Todas"
+            active_only = True
+            as_of_str = None
+            provider = "Modo extractivo local"
+            api_key = ""
+            strict_mode = True
+    else:
+        st.markdown("### Consulta")
+        st.caption(
+            "Modo simplificado: solo documentos vigentes, evidencia estricta y configuración protegida."
+        )
+        # Mantener opciones simples y útiles para usuario final
+        area_filter = st.selectbox("Área", areas)
+        provider = "Modo extractivo local"
+        active_only = True
+        as_of_str = None
+        strict_mode = True
 
     st.divider()
-    strict_mode = st.toggle(
-        "Modo evidencia estricta",
-        value=True,
-        help="Si no hay evidencia sobre el umbral, no intenta responder."
-    )
     if st.button("Limpiar conversación", use_container_width=True):
         st.session_state["chat"] = []
         st.rerun()
@@ -512,13 +703,19 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs([
-    "💬 Consulta",
-    "📚 Base documental",
-    "⬆️ Ingesta",
-    "🧪 Evaluación QA",
-    "📊 Monitoreo",
-])
+if st.session_state.get("user_role") == "Administrador":
+    tabs = st.tabs([
+        "💬 Consulta",
+        "📚 Base documental",
+        "⬆️ Ingesta",
+        "🧪 Evaluación QA",
+        "📊 Monitoreo",
+    ])
+else:
+    tabs = st.tabs([
+        "💬 Consulta",
+        "📚 Fuentes",
+    ])
 
 # -------------------- CONSULTA --------------------
 with tabs[0]:
@@ -583,8 +780,12 @@ with tabs[0]:
 
 # -------------------- BASE DOCUMENTAL --------------------
 with tabs[1]:
-    st.subheader("Base documental")
-    st.caption("Inventario, vigencia, versión y estado de los documentos indexados.")
+    if st.session_state.get("user_role") == "Administrador":
+        st.subheader("Base documental")
+        st.caption("Inventario, vigencia, versión y estado de los documentos indexados.")
+    else:
+        st.subheader("Fuentes disponibles")
+        st.caption("Documentos normativos disponibles para tus consultas.")
 
     ddf = get_documents()
     if ddf.empty:
@@ -608,246 +809,255 @@ with tabs[1]:
         ]]
         st.dataframe(show, use_container_width=True, hide_index=True)
 
-        st.markdown("### Explorador de recuperación")
-        test_q = st.text_input("Pregunta de prueba", value="¿Qué contiene el archivo D10?", key="base_test")
-        if st.button("Probar recuperación", type="primary"):
-            ev = retrieve(
-                test_q, final_k, candidates, threshold, lexical_weight,
-                area_filter, as_of_str, active_only
-            )
-            if not ev:
-                st.warning("No se encontraron fragmentos sobre el umbral configurado.")
-            else:
-                for i, e in enumerate(ev, 1):
-                    st.markdown(
-                        f"""<div class="ev">
-                        <strong>{i}. {source_label(e)}</strong><br>
-                        Área: {e['area']} · Versión: {e['version']} ·
-                        Score: {e['score']:.3f}<br><br>
-                        {e['text'][:1600]}
-                        </div>""",
-                        unsafe_allow_html=True
-                    )
-
-        st.markdown("### Gestión")
-        ids = ddf["id"].tolist()
-        opts = {f"{r['filename']} · {r['version']} · ID {r['id']}": int(r["id"]) for _, r in ddf.iterrows()}
-        selected = st.selectbox("Documento", list(opts.keys()))
-        if st.button("Eliminar documento seleccionado"):
-            delete_doc(opts[selected])
-            st.success("Documento eliminado de la base y del índice.")
-            st.rerun()
-
-# -------------------- INGESTA --------------------
-with tabs[2]:
-    st.subheader("Ingesta controlada")
-    st.caption("La metadata permite distinguir versiones, vigencia y reemplazos.")
-
-    files = st.file_uploader(
-        "Selecciona uno o más PDF",
-        type=["pdf"],
-        accept_multiple_files=True
-    )
-
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        area = st.text_input("Área", placeholder="Ej.: Contables")
-        tipo = st.selectbox("Tipo documental", [
-            "Norma", "Circular", "Capítulo", "Manual", "Anexo", "Otro"
-        ])
-        version = st.text_input("Versión", value=str(date.today()))
-    with c2:
-        pub = st.date_input("Fecha de publicación", value=date.today())
-        vig_desde = st.date_input("Vigencia desde", value=date.today())
-        has_end = st.checkbox("Tiene fin de vigencia", value=False)
-        vig_hasta = st.date_input("Vigencia hasta", value=date.today(), disabled=not has_end)
-    with c3:
-        estado = st.selectbox("Estado", ["Vigente", "Borrador", "No vigente"])
-        fuente_url = st.text_input("URL oficial / fuente")
-        etiquetas = st.text_input("Etiquetas", placeholder="RCD, deuda, CMF")
-        reemplaza_a = st.text_input("Reemplaza a", placeholder="Nombre o versión anterior")
-
-    if st.button("Incorporar a la base", type="primary", disabled=not files):
-        messages = []
-        for f in files or []:
-            ok, msg = add_document(f, {
-                "area": area or "Sin clasificar",
-                "tipo": tipo,
-                "version": version,
-                "fecha_publicacion": str(pub),
-                "vigencia_desde": str(vig_desde),
-                "vigencia_hasta": str(vig_hasta) if has_end else "",
-                "estado": estado,
-                "fuente_url": fuente_url,
-                "etiquetas": etiquetas,
-                "reemplaza_a": reemplaza_a,
-            })
-            messages.append((ok, msg))
-        for ok, msg in messages:
-            st.success(msg) if ok else st.warning(msg)
-        if any(ok for ok, _ in messages):
-            st.rerun()
-
-    st.divider()
-    st.markdown("#### Controles de ingesta incorporados")
-    st.markdown("""
-- Hash SHA-256 para evitar duplicados.
-- Extracción por página para conservar trazabilidad.
-- Fragmentación con solapamiento.
-- Metadata de publicación y vigencia.
-- Estado documental y relación de reemplazo.
-- Fuente oficial y etiquetas.
-""")
-
-# -------------------- QA --------------------
-with tabs[3]:
-    st.subheader("Evaluación QA")
-    st.caption("Convierte preguntas conocidas en una batería repetible de pruebas.")
-
-    qa_sub = st.tabs(["Casos de prueba", "Carga masiva", "Ejecutar evaluación"])
-
-    with qa_sub[0]:
-        with st.form("qa_add"):
-            qq = st.text_area("Pregunta")
-            ed = st.text_input("Documento esperado", placeholder="Ej.: Deudores.pdf")
-            et = st.text_input("Texto esperado (opcional)", placeholder="Palabra o frase que debería aparecer")
-            nt = st.text_area("Observaciones")
-            save = st.form_submit_button("Guardar caso")
-        if save and qq.strip():
-            con = db()
-            con.execute("""
-                INSERT INTO qa_cases(question,expected_document,expected_text,notes,created_at)
-                VALUES(?,?,?,?,?)
-            """, (qq.strip(), ed.strip(), et.strip(), nt.strip(), datetime.now().isoformat(timespec="seconds")))
-            con.commit()
-            con.close()
-            st.success("Caso QA agregado.")
-            st.rerun()
-
-        con = db()
-        qdf = pd.read_sql_query("SELECT * FROM qa_cases ORDER BY id DESC", con)
-        con.close()
-        if not qdf.empty:
-            st.dataframe(qdf[["id","question","expected_document","expected_text","notes"]], use_container_width=True, hide_index=True)
-
-    with qa_sub[1]:
-        template = pd.DataFrame([
-            {
-                "question":"¿Qué contiene el archivo D10?",
-                "expected_document":"Deudores.pdf",
-                "expected_text":"D10",
-                "notes":"Caso de ejemplo"
-            }
-        ])
-        st.download_button(
-            "Descargar plantilla CSV",
-            data=template.to_csv(index=False).encode("utf-8-sig"),
-            file_name="plantilla_qa.csv",
-            mime="text/csv"
-        )
-        qa_file = st.file_uploader("Cargar CSV QA", type=["csv"], key="qa_csv")
-        if qa_file and st.button("Importar casos QA"):
-            df = pd.read_csv(qa_file)
-            required = {"question","expected_document","expected_text","notes"}
-            if not required.issubset(df.columns):
-                st.error("El CSV debe incluir: question, expected_document, expected_text, notes")
-            else:
-                con = db()
-                for _, r in df.iterrows():
-                    con.execute("""
-                        INSERT INTO qa_cases(question,expected_document,expected_text,notes,created_at)
-                        VALUES(?,?,?,?,?)
-                    """, (
-                        str(r.get("question","")).strip(),
-                        str(r.get("expected_document","")).strip(),
-                        str(r.get("expected_text","")).strip(),
-                        str(r.get("notes","")).strip(),
-                        datetime.now().isoformat(timespec="seconds")
-                    ))
-                con.commit()
-                con.close()
-                st.success(f"Se importaron {len(df)} casos.")
-                st.rerun()
-
-    with qa_sub[2]:
-        con = db()
-        qdf = pd.read_sql_query("SELECT * FROM qa_cases ORDER BY id", con)
-        con.close()
-        if qdf.empty:
-            st.info("Primero agrega casos QA.")
-        elif st.button("Ejecutar batería completa", type="primary"):
-            results = []
-            con = db()
-            for _, r in qdf.iterrows():
+        if st.session_state.get("user_role") == "Administrador":
+            st.markdown("### Explorador de recuperación")
+            test_q = st.text_input("Pregunta de prueba", value="¿Qué contiene el archivo D10?", key="base_test")
+            if st.button("Probar recuperación", type="primary"):
                 ev = retrieve(
-                    r["question"], final_k, candidates, threshold, lexical_weight,
+                    test_q, final_k, candidates, threshold, lexical_weight,
                     area_filter, as_of_str, active_only
                 )
-                expected = (r["expected_document"] or "").strip().lower()
-                found = any((e["filename"] or "").lower() == expected for e in ev) if expected else None
-                top = max([e["score"] for e in ev], default=0)
-                con.execute("""
-                    INSERT INTO qa_runs(qa_case_id,created_at,found_expected_doc,top_score,evidence_count)
-                    VALUES(?,?,?,?,?)
-                """, (
-                    int(r["id"]), datetime.now().isoformat(timespec="seconds"),
-                    None if found is None else int(found), top, len(ev)
-                ))
-                results.append({
-                    "ID": r["id"],
-                    "Pregunta": r["question"],
-                    "Documento esperado": r["expected_document"],
-                    "Encontrado": "Sí" if found else ("N/A" if found is None else "No"),
-                    "Top score": round(top,3),
-                    "Evidencias": len(ev)
+                if not ev:
+                    st.warning("No se encontraron fragmentos sobre el umbral configurado.")
+                else:
+                    for i, e in enumerate(ev, 1):
+                        st.markdown(
+                            f"""<div class="ev">
+                            <strong>{i}. {source_label(e)}</strong><br>
+                            Área: {e['area']} · Versión: {e['version']} ·
+                            Score: {e['score']:.3f}<br><br>
+                            {e['text'][:1600]}
+                            </div>""",
+                            unsafe_allow_html=True
+                        )
+
+            st.markdown("### Gestión")
+            ids = ddf["id"].tolist()
+            opts = {f"{r['filename']} · {r['version']} · ID {r['id']}": int(r["id"]) for _, r in ddf.iterrows()}
+            selected = st.selectbox("Documento", list(opts.keys()))
+            if st.button("Eliminar documento seleccionado"):
+                delete_doc(opts[selected])
+                st.success("Documento eliminado de la base y del índice.")
+                st.rerun()
+
+if st.session_state.get("user_role") == "Administrador":
+    # -------------------- INGESTA --------------------
+    with tabs[2]:
+        st.subheader("Ingesta controlada")
+        st.caption("La metadata permite distinguir versiones, vigencia y reemplazos.")
+
+        files = st.file_uploader(
+            "Selecciona uno o más PDF",
+            type=["pdf"],
+            accept_multiple_files=True
+        )
+
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            area = st.text_input("Área", placeholder="Ej.: Contables")
+            tipo = st.selectbox("Tipo documental", [
+                "Norma", "Circular", "Capítulo", "Manual", "Anexo", "Otro"
+            ])
+            version = st.text_input("Versión", value=str(date.today()))
+        with c2:
+            pub = st.date_input("Fecha de publicación", value=date.today())
+            vig_desde = st.date_input("Vigencia desde", value=date.today())
+            has_end = st.checkbox("Tiene fin de vigencia", value=False)
+            vig_hasta = st.date_input("Vigencia hasta", value=date.today(), disabled=not has_end)
+        with c3:
+            estado = st.selectbox("Estado", ["Vigente", "Borrador", "No vigente"])
+            fuente_url = st.text_input("URL oficial / fuente")
+            etiquetas = st.text_input("Etiquetas", placeholder="RCD, deuda, CMF")
+            reemplaza_a = st.text_input("Reemplaza a", placeholder="Nombre o versión anterior")
+
+        if st.button("Incorporar a la base", type="primary", disabled=not files):
+            messages = []
+            for f in files or []:
+                ok, msg = add_document(f, {
+                    "area": area or "Sin clasificar",
+                    "tipo": tipo,
+                    "version": version,
+                    "fecha_publicacion": str(pub),
+                    "vigencia_desde": str(vig_desde),
+                    "vigencia_hasta": str(vig_hasta) if has_end else "",
+                    "estado": estado,
+                    "fuente_url": fuente_url,
+                    "etiquetas": etiquetas,
+                    "reemplaza_a": reemplaza_a,
                 })
-            con.commit()
+                messages.append((ok, msg))
+            for ok, msg in messages:
+                st.success(msg) if ok else st.warning(msg)
+            if any(ok for ok, _ in messages):
+                st.rerun()
+
+        st.divider()
+        st.markdown("#### Controles de ingesta incorporados")
+        st.markdown("""
+    - Hash SHA-256 para evitar duplicados.
+    - Extracción por página para conservar trazabilidad.
+    - Fragmentación con solapamiento.
+    - Metadata de publicación y vigencia.
+    - Estado documental y relación de reemplazo.
+    - Fuente oficial y etiquetas.
+    """)
+
+    # -------------------- QA --------------------
+    with tabs[3]:
+        st.subheader("Evaluación QA")
+        st.caption("Convierte preguntas conocidas en una batería repetible de pruebas.")
+
+        qa_sub = st.tabs(["Casos de prueba", "Carga masiva", "Ejecutar evaluación"])
+
+        with qa_sub[0]:
+            with st.form("qa_add"):
+                qq = st.text_area("Pregunta")
+                ed = st.text_input("Documento esperado", placeholder="Ej.: Deudores.pdf")
+                et = st.text_input("Texto esperado (opcional)", placeholder="Palabra o frase que debería aparecer")
+                nt = st.text_area("Observaciones")
+                save = st.form_submit_button("Guardar caso")
+            if save and qq.strip():
+                con = db()
+                con.execute("""
+                    INSERT INTO qa_cases(question,expected_document,expected_text,notes,created_at)
+                    VALUES(?,?,?,?,?)
+                """, (qq.strip(), ed.strip(), et.strip(), nt.strip(), datetime.now().isoformat(timespec="seconds")))
+                con.commit()
+                con.close()
+                st.success("Caso QA agregado.")
+                st.rerun()
+
+            con = db()
+            qdf = pd.read_sql_query("SELECT * FROM qa_cases ORDER BY id DESC", con)
             con.close()
-            rdf = pd.DataFrame(results)
-            st.dataframe(rdf, use_container_width=True, hide_index=True)
-            valid = rdf[rdf["Encontrado"].isin(["Sí","No"])]
-            if len(valid):
-                acc = (valid["Encontrado"]=="Sí").mean()*100
-                st.metric("Recall documental QA", f"{acc:.1f}%")
+            if not qdf.empty:
+                st.dataframe(qdf[["id","question","expected_document","expected_text","notes"]], use_container_width=True, hide_index=True)
 
-# -------------------- MONITOREO --------------------
-with tabs[4]:
-    st.subheader("Monitoreo")
-    con = db()
-    dcount = pd.read_sql_query("SELECT COUNT(*) n FROM documents", con).iloc[0]["n"]
-    ccount = pd.read_sql_query("SELECT COUNT(*) n FROM chunks", con).iloc[0]["n"]
-    qlog = pd.read_sql_query("SELECT * FROM queries ORDER BY id DESC", con)
-    qac = pd.read_sql_query("SELECT COUNT(*) n FROM qa_cases", con).iloc[0]["n"]
-    con.close()
+        with qa_sub[1]:
+            template = pd.DataFrame([
+                {
+                    "question":"¿Qué contiene el archivo D10?",
+                    "expected_document":"Deudores.pdf",
+                    "expected_text":"D10",
+                    "notes":"Caso de ejemplo"
+                }
+            ])
+            st.download_button(
+                "Descargar plantilla CSV",
+                data=template.to_csv(index=False).encode("utf-8-sig"),
+                file_name="plantilla_qa.csv",
+                mime="text/csv"
+            )
+            qa_file = st.file_uploader("Cargar CSV QA", type=["csv"], key="qa_csv")
+            if qa_file and st.button("Importar casos QA"):
+                df = pd.read_csv(qa_file)
+                required = {"question","expected_document","expected_text","notes"}
+                if not required.issubset(df.columns):
+                    st.error("El CSV debe incluir: question, expected_document, expected_text, notes")
+                else:
+                    con = db()
+                    for _, r in df.iterrows():
+                        con.execute("""
+                            INSERT INTO qa_cases(question,expected_document,expected_text,notes,created_at)
+                            VALUES(?,?,?,?,?)
+                        """, (
+                            str(r.get("question","")).strip(),
+                            str(r.get("expected_document","")).strip(),
+                            str(r.get("expected_text","")).strip(),
+                            str(r.get("notes","")).strip(),
+                            datetime.now().isoformat(timespec="seconds")
+                        ))
+                    con.commit()
+                    con.close()
+                    st.success(f"Se importaron {len(df)} casos.")
+                    st.rerun()
 
-    total_q = len(qlog)
-    no_ev = int(qlog["no_evidence"].sum()) if total_q else 0
-    avg_lat = int(qlog["latency_ms"].mean()) if total_q else 0
-    avg_top = float(qlog["top_score"].mean()) if total_q else 0
+        with qa_sub[2]:
+            con = db()
+            qdf = pd.read_sql_query("SELECT * FROM qa_cases ORDER BY id", con)
+            con.close()
+            if qdf.empty:
+                st.info("Primero agrega casos QA.")
+            elif st.button("Ejecutar batería completa", type="primary"):
+                results = []
+                con = db()
+                for _, r in qdf.iterrows():
+                    ev = retrieve(
+                        r["question"], final_k, candidates, threshold, lexical_weight,
+                        area_filter, as_of_str, active_only
+                    )
+                    expected = (r["expected_document"] or "").strip().lower()
+                    found = any((e["filename"] or "").lower() == expected for e in ev) if expected else None
+                    top = max([e["score"] for e in ev], default=0)
+                    con.execute("""
+                        INSERT INTO qa_runs(qa_case_id,created_at,found_expected_doc,top_score,evidence_count)
+                        VALUES(?,?,?,?,?)
+                    """, (
+                        int(r["id"]), datetime.now().isoformat(timespec="seconds"),
+                        None if found is None else int(found), top, len(ev)
+                    ))
+                    results.append({
+                        "ID": r["id"],
+                        "Pregunta": r["question"],
+                        "Documento esperado": r["expected_document"],
+                        "Encontrado": "Sí" if found else ("N/A" if found is None else "No"),
+                        "Top score": round(top,3),
+                        "Evidencias": len(ev)
+                    })
+                con.commit()
+                con.close()
+                rdf = pd.DataFrame(results)
+                st.dataframe(rdf, use_container_width=True, hide_index=True)
+                valid = rdf[rdf["Encontrado"].isin(["Sí","No"])]
+                if len(valid):
+                    acc = (valid["Encontrado"]=="Sí").mean()*100
+                    st.metric("Recall documental QA", f"{acc:.1f}%")
 
-    c1,c2,c3,c4,c5 = st.columns(5)
-    c1.metric("Documentos", int(dcount))
-    c2.metric("Fragmentos", int(ccount))
-    c3.metric("Consultas", total_q)
-    c4.metric("Sin evidencia", no_ev)
-    c5.metric("Latencia media", f"{avg_lat} ms")
+    # -------------------- MONITOREO --------------------
+    with tabs[4]:
+        st.subheader("Monitoreo")
+        con = db()
+        dcount = pd.read_sql_query("SELECT COUNT(*) n FROM documents", con).iloc[0]["n"]
+        ccount = pd.read_sql_query("SELECT COUNT(*) n FROM chunks", con).iloc[0]["n"]
+        qlog = pd.read_sql_query("SELECT * FROM queries ORDER BY id DESC", con)
+        qac = pd.read_sql_query("SELECT COUNT(*) n FROM qa_cases", con).iloc[0]["n"]
+        con.close()
 
-    st.caption(f"Score superior medio: {avg_top:.3f} · Casos QA: {int(qac)}")
+        total_q = len(qlog)
+        no_ev = int(qlog["no_evidence"].sum()) if total_q else 0
+        avg_lat = int(qlog["latency_ms"].mean()) if total_q else 0
+        avg_top = float(qlog["top_score"].mean()) if total_q else 0
 
-    if total_q:
-        st.markdown("### Últimas consultas")
-        show = qlog[[
-            "created_at","question","provider","evidence_count","top_score",
-            "avg_score","no_evidence","latency_ms"
-        ]].head(100)
-        st.dataframe(show, use_container_width=True, hide_index=True)
+        c1,c2,c3,c4,c5 = st.columns(5)
+        c1.metric("Documentos", int(dcount))
+        c2.metric("Fragmentos", int(ccount))
+        c3.metric("Consultas", total_q)
+        c4.metric("Sin evidencia", no_ev)
+        c5.metric("Latencia media", f"{avg_lat} ms")
 
-        st.markdown("### Indicadores de calidad")
-        no_ev_rate = (no_ev / total_q) * 100 if total_q else 0
-        st.progress(min(no_ev_rate/100, 1.0), text=f"Consultas sin evidencia: {no_ev_rate:.1f}%")
+        st.caption(f"Score superior medio: {avg_top:.3f} · Casos QA: {int(qac)}")
 
-st.divider()
-st.caption(
-    "Prototipo PyC Pro. Las respuestas deben validarse contra la normativa oficial vigente. "
-    "El diseño prioriza evidencia, vigencia, trazabilidad y pruebas repetibles."
-)
+        if total_q:
+            st.markdown("### Últimas consultas")
+            show = qlog[[
+                "created_at","question","provider","evidence_count","top_score",
+                "avg_score","no_evidence","latency_ms"
+            ]].head(100)
+            st.dataframe(show, use_container_width=True, hide_index=True)
+
+            st.markdown("### Indicadores de calidad")
+            no_ev_rate = (no_ev / total_q) * 100 if total_q else 0
+            st.progress(min(no_ev_rate/100, 1.0), text=f"Consultas sin evidencia: {no_ev_rate:.1f}%")
+
+    st.divider()
+    st.caption(
+        "Prototipo PyC Pro. Las respuestas deben validarse contra la normativa oficial vigente. "
+        "El diseño prioriza evidencia, vigencia, trazabilidad y pruebas repetibles."
+    )
+
+if st.session_state.get("user_role") != "Administrador":
+    st.divider()
+    st.caption(
+        "Las respuestas deben validarse contra la normativa oficial vigente. "
+        "El agente prioriza evidencia documental y trazabilidad."
+    )
